@@ -1,10 +1,17 @@
-           <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="TOTEM1.png">
-  <title>Azimuth</title>
+  <title>Urgence 2025</title>
+ 
+  <style>
+    body.noscroll {
+        overflow: hidden; 
+    }
+</style>
+  
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <style>
@@ -13,6 +20,7 @@
     body { font-family: Arial, sans-serif; text-align: center; background-color: #bfecbb; }
     .header h1 { font-size: 30px; font-weight: bold; }
     .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px; }
+    .phone { font-size: 32px; font-weight: bold; margin-top: 20px; }
     .page { font-size: 22px; font-weight: bold; margin-top: 3px; }
     #map { height: 410px; width: 100%; }
     #error-message { color: red; }
@@ -21,29 +29,90 @@
     #legend ul { list-style: none; padding: 0; margin: 0; }
     #legend li { margin-bottom: 4px; }
     #search-container { margin: 10px 0; font-family: Arial, sans-serif; }
+    #search-input { padding: 5px; width: 250px; font-size: 14px; }
+    #search-button { padding: 5px 10px; font-size: 14px; }
+    #switchMapButton { padding: 5px 10px; font-size: 14px; }
+    #switchMapButton2 { padding: 5px 10px; font-size: 14px; }
+    #switchMapButtonUrgence { padding: 5px 10px; font-size: 14px; }
+    #manualSearchButton { padding: 5px 10px; font-size: 14px; }
+    #manualSearchInput { padding: 5px 20px; font-size: 14px; }
     #toggle-debug { padding: 5px 10px; font-size: 14px; }
+    .highlight { background-color: yellow; }
+    .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: none;
+            padding: 10px;
+            background-color: #7fa77b;
+        }
+        .logout-button {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  background-color: #7fa77b;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 14px 30px;
+  cursor: pointer;
+  z-index: 10;
+}
+.logout-button:hover {
+  background-color: #c82333;
+}
+
+        .link1 {
+  display: inline-block;
+  padding: 3px 10px;
+  background-color: #e6e6e6;
+  color: rgb(0, 0, 0);
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: none;
+}
+.link1:hover {
+  background-color: #7fa77b;
+}
+.link:hover {
+  background-color: #7fa77b;
+}
+.sites {
+  padding: 11px 12px;
+  font-weight: bold;
+}
+.sites:hover {
+            background-color: #c82333; 
+        }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Azimuth</h1>
+    
   </div>
-  <p class="page">Azimuth Chiroptères</p>
+  <p class="page">Données Chiroptères</p>
+
+
   <div id="map"></div>
 
-  <div id="search-container"> 
+  <!-- recherche et légende -->
+  <div id="search-container">
+    
+    
+    <input type="text" id="search-input" placeholder="Rechercher un marqueur" />
+    <button id="search-button">Rechercher</button>
     <div id="legend">
-      <strong>Légende :</strong>
-      <ul id="legend-list"></ul>
     </div>
     <div id="error-message"></div>
     <div id="debug-container">
-      <button id="toggle-debug">
-        <span id="arrow">▶</span> Afficher liste infos 
-      </button>
+      
       <div id="debug-info" style="display: none;"></div>
-    </div>
+    
   </div>
+<iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdxk7Qju3plLpTKDVwHlyfJ--PucsApPSCteGgEIx5EIFK8Sw/viewform?embedded=true" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0">Chargement…</iframe>
+<iframe src="https://docs.google.com/spreadsheets/d/1DS6Ictl46lEGFWpbA3r82lmDsYJL2tQw4Vkxj0je9s8/edit?gid=1940485869#gid=1940485869" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0"></iframe>
+
+ 
 
   <script>
     let map;
@@ -51,21 +120,34 @@
     const GEOCODING_CACHE_KEY = 'geocodingCache';
     const GEOCODING_DELAY = 5;
     let infoWindow;
-
-    const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
+    let searchResults = [];
+    let currentSearchIndex = 0;
+    let lastSearchTerm = "";
+    let urgentMode = false;
     
-    // Initialisation de la carte
-    function initMap() {
-      map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 8.8,
-        center: {lat: 43.453354, lng: 6.288334}
-      });
-      infoWindow = new google.maps.InfoWindow();
-      updateData(csvURL1);
-      setInterval(() => updateData(csvURL1), 120000);
-    }
 
-    // Géocodage avec cache
+  const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
+
+   
+    let currentCSV = csvURL1;
+
+    // icônes SVG
+    function createPhoneSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">📞</text></svg>`; }
+    function createAmbulanceSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🚑</text></svg>`; }
+    function createCrossSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🩺</text></svg>`; }
+    function createMammSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦊</text></svg>`; }
+    function createOisSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦆</text></svg>`; }
+    function createChiroSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦇</text></svg>`; }
+    function createDomSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐶</text></svg>`; }
+    function createreptSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦎</text></svg>`; }
+    function createtortSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐢</text></svg>`; }
+    function createserpSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐍</text></svg>`; }
+    function createamphiSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐸</text></svg>`; }
+    function createTriangleSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg width="20" height="20" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><polygon points="15,5 25,25 5,25" fill="${color}" stroke="black" stroke-width="2" /></svg>`; }
+    function createInterventionSVG(color) {  return `data:image/svg+xml;utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><text x="1" y="42" font-size="40" fill="${color}">⭕</text> </svg>`;
+}
+
+    // géocodage avec cache
     async function geocodeWithCache(geocoder, cityName) {
       let cache = JSON.parse(localStorage.getItem(GEOCODING_CACHE_KEY) || '{}');
       if (cache[cityName]) {
@@ -78,7 +160,7 @@
           if (status === 'OK') {
             const location = results[0].geometry.location;
             cache[cityName] = { lat: location.lat(), lng: location.lng() };
-            localStorage.setItem(GEOCODING_CACHE, JSON.stringify(cache));
+            localStorage.setItem(GEOCODING_CACHE_KEY, JSON.stringify(cache));
             console.log(`Géocodage réussi pour ${cityName}`);
             resolve({ lat: location.lat(), lng: location.lng() });
           } else {
@@ -89,36 +171,113 @@
       });
     }
 
-    // Données CSV 
+    //  données CSV selon l'URL
     function extractData(row, csvUrl) {
       if (csvUrl === csvURL1) {
         return {
+          name: row[9]?.trim() || '',
           repondu: row[1]?.trim() || '',
           Numero: row[2]?.trim() || '',
-          cityName: row[3]?.trim() || '', // Assurez-vous que c'est le bon index
-          azim: row[4]?.trim() || '',
+          cityName: row[3]?.trim() || '',
+          espece: row[4]?.trim() || '',
+          address: (row[12]?.trim() ? row[12].trim() : row[3]?.trim()) || '',
+          status: row[13]?.trim() || '',
+          seil: row[0]?.trim() || '',
+          Esp: row[14]?.trim() || '',
+          info: row[6]?.trim() ||'',
+          Emoj: row[15]?.trim() || '',
+          Emoj2: row[11]?.trim() || '',
+          jourdispo: row[15]?.trim() ||'',
+          azimut: row[4]?.trim() || '',
+          
         };
+      
       }
       return {};
     }
 
-    // Légende en fonction du CSV 
+    // légende en fonction du CSV 
     function updateLegend(csvUrl) {
       const legend = document.getElementById("legend");
       const legendList = document.getElementById("legend-list");
       if (csvUrl === csvURL1) {
         legend.style.display = 'inline';
-        legendList.innerHTML = `
-          <span style="font-size:20px;">⭕:</span> Position
-        `;
+       
+      
+      
+      } else {
+        legend.style.display = 'none';
       }
-    } 
+    }
 
-    // Lecture du CSV et ajout des marqueurs
+    // changement CSV / affichage carte
+    function switchMap() {
+      markers.forEach(marker => marker.setMap(null));
+      markers = [];
+      currentCSV = (currentCSV === csvURL1) ? csvURL2 : csvURL1;
+      updateData(currentCSV);
+    }
+    function switchMapToCSV3() {
+      markers.forEach(marker => marker.setMap(null));
+      markers = [];
+      currentCSV = (currentCSV !== csvURL3) ? csvURL3 : csvURL1;
+      updateData(currentCSV);
+    }
+    function switchMapUrgence() {
+      urgentMode = !urgentMode;
+      markers.forEach(marker => marker.setMap(null));
+      markers = [];
+      currentCSV = csvURL2;
+      updateData(currentCSV);
+    }
+   
+
+
+    
+  
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("switchMapButton").addEventListener("click", switchMap);
+    document.getElementById("switchMapButton2").addEventListener("click", switchMapToCSV3);
+    document.getElementById("switchMapButtonUrgence").addEventListener("click", switchMapUrgence);
+    document.getElementById("search-button").addEventListener("click", searchMarkers);
+    document.getElementById("manualSearchButton").addEventListener("click", manualSearch);
+
+    // "Entrée"
+    const input = document.getElementById("manualSearchInput");
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        manualSearch();
+      }
+    });
+  });
+  const input = document.getElementById("search-input");
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        searchMarkers();
+      }
+    });
+
+
+    // initialisation carte
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 8.8,
+        center: {lat: 43.453354, lng: 6.288334}
+      });
+      infoWindow = new google.maps.InfoWindow();
+      updateData(currentCSV);
+      setInterval(() => updateData(currentCSV), 120000);
+    }
+
+    
+
+    // lecture du CSV et ajout des marqueurs
     async function updateData(csvUrl) {
       updateLegend(csvUrl);
+      const minColumns = (csvUrl === csvURL1) ? 4 : 5;
       const geocoder = new google.maps.Geocoder();
       let debugInfoHTML = "";
+      const markerPositions = new Map();
       markers.forEach(marker => marker.setMap(null));
       markers = [];
       
@@ -130,21 +289,154 @@
             let markerCount = 0;
             for (let i = 1; i < results.data.length; i++) {
               const row = results.data[i];
-              if (row.length > 3) { // Assurez-vous qu'il y a suffisamment de colonnes
-                let { repondu, Numero, cityName, azim } = extractData(row, csvUrl);
-                if (cityName && cityName.trim() !== "") {
+              if (row.length >= minColumns) {
+                let { name, repondu, Numero, cityName, azimut, address, status, seil, Esp, info, marqueur, Emoj, Emoj2, poste, jourdispo } = extractData(row, csvUrl);
+                const currentDay = new Date().toLocaleString('fr-FR', { weekday: 'long' });
+                
+               
+                
+                if (csvUrl === csvURL1 || csvUrl === csvURL2 || csvUrl === csvURL3) {
+
+                  let markerColor;
+                  let icon;
+                  if (csvUrl === csvURL1) {
+                    markerColor = getColorFromNumero(Numero);
+                  } else if (csvUrl === csvURL2 || csvUrl === csvURL3) {
+                    markerColor = getColorFromNumero(marqueur);
+                  }
                   try {
-                    const location = await geocodeWithCache(geocoder, cityName);
+                    if (!address || address.trim() === "") continue;
+                    const location = await geocodeWithCache(geocoder, address);
+                    let finalPosition = new google.maps.LatLng(location.lat, location.lng);
+                    let positionKey = finalPosition.lat() + "," + finalPosition.lng();
+                    let positionsForLocation;
+                    if (markerPositions.has(positionKey)) {
+                      positionsForLocation = markerPositions.get(positionKey);
+                      positionsForLocation.count++;
+                    } 
+                    if (csvUrl === csvURL1) {
+                      const lowerEsp = Esp.toLowerCase();
+                      const lowerStatus = status.trim().toLowerCase();
+                       if(lowerEsp.includes("oiseau")) {
+                        icon = { url: createOisSVG(markerColor) };
+                      } else if(lowerEsp.includes("mammifère") || lowerEsp.includes("mammifere")) {
+                        icon = { url: createMammSVG(markerColor) };
+                      } else if(lowerEsp.includes("chiroptère") || lowerEsp.includes("chiropter")) {
+                        icon = { url: createChiroSVG(markerColor) };
+                      } else if(lowerEsp.includes("serpent")) {
+                        icon = { url: createserpSVG(markerColor) };
+                      } else if(lowerEsp.includes("tortue")) {
+                        icon = { url: createtortSVG(markerColor) };
+                      } else if(lowerEsp.includes("domestique")) {
+                        icon = { url: createDomSVG(markerColor) };
+                      } else if(lowerEsp.includes("amphibien")) {
+                        icon = { url: createamphiSVG(markerColor) };
+                      } else if(lowerEsp.includes("reptile")) {
+                        icon = { url: createreptSVG(markerColor) };
+                      } else {
+                        icon = { url: createTriangleSVG(markerColor) };
+                      }
+                      icon.optimized = false;
+                    
+                      icon.optimized = false;
+                    } else {
+                      if (address === cityName) {
+                        icon = {
+                          path: google.maps.SymbolPath.CIRCLE,
+                          fillColor: markerColor,
+                          fillOpacity: 0.8,
+                          strokeColor: 'black',
+                          strokeWeight: 2,
+                          scale: 12,
+                        };
+                      } else {
+                        icon = {
+                          url: createTriangleSVG(markerColor),
+                          scaledSize: new google.maps.Size(40, 40),
+                        };
+                      }
+                    }
+                    try {
+  const azimutAngle = parseFloat(azimut);
+  if (!isNaN(azimutAngle)) {
+    const distanceMeters = 100000;
+    const R = 6378137;
+    const bearingRad = azimutAngle * Math.PI / 180;
+
+    const lat1 = finalPosition.lat() * Math.PI / 180;
+    const lng1 = finalPosition.lng() * Math.PI / 180;
+
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(distanceMeters / R) +
+      Math.cos(lat1) * Math.sin(distanceMeters / R) * Math.cos(bearingRad)
+    );
+    const lng2 = lng1 + Math.atan2(
+      Math.sin(bearingRad) * Math.sin(distanceMeters / R) * Math.cos(lat1),
+      Math.cos(distanceMeters / R) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+    const azimutEnd = new google.maps.LatLng(lat2 * 180 / Math.PI, lng2 * 180 / Math.PI);
+
+    new google.maps.Polyline({
+      path: [finalPosition, azimutEnd],
+      geodesic: true,
+      strokeColor: markerColor,
+      strokeOpacity: 1.0,
+      strokeWeight: 2,
+      map: map,
+    });
+  }
+} catch (e) {
+  console.warn("Erreur lors du tracé de l’azimut :", e);
+}
+
                     const marker = new google.maps.Marker({
-                      position: { lat: location.lat, lng: location.lng },
+                      position: finalPosition,
                       map: map,
-                      title: `${cityName} - ${repondu} - Azimuth: ${azim}`,
+                      title: `${name} ${espece} \n${jourdispo}\n${info} ${Emoj} ${Emoj2}`,
+                      icon: icon,
+                      zIndex: 10 
+                    });
+                    
+          
+if (csvUrl === csvURL1 && status.trim().toLowerCase() === "intervention") {
+  console.log("Création du marqueur d'intervention");
+  const interventionOffset = {
+    lat: 0.0000,
+    lng: 0.0000
+  };
+  const interventionMarker = new google.maps.Marker({
+    position: {
+      lat: finalPosition.lat() + interventionOffset.lat,
+      lng: finalPosition.lng() + interventionOffset.lng
+    },
+    map: map,
+    icon: {      url: createInterventionSVG(markerColor)}, 
+    zIndex: 1     
+  });
+  markers.push(interventionMarker);
+}
+
+                    marker.customData = {
+                      cityName: cityName.toLowerCase(),
+                      name: name.toLowerCase(),
+                      espece: espece.toLowerCase()
+                    };
+                    marker.customIndex = markerCount;
+                    marker.addListener("click", () => {
+                      infoWindow.setContent(`<div style="font-size:20px; font-weight:bold; color:#333;">${name} (${espece} <br>${jourdispo}<br>${info}<br>${Emoj} ${Emoj2})</div>`);
+                      infoWindow.open(map, marker);
+                      
                     });
                     markers.push(marker);
+                    let debugLine = "";
+                    if (csvUrl === csvURL1) {
+                      debugLine = `${repondu} ---> ${espece} | info : ${info}  | lieu découverte : ${cityName}  | appel : ${seil}`;
+                    } 
+                    debugInfoHTML += `<div id="debug-line-${markerCount}" data-index="${markerCount}">${debugLine}</div>\n`;
                     markerCount++;
-                    debugInfoHTML += `<div>${cityName} - ${repondu} - Azimuth: ${azim}</div>`;
                   } catch (geocodeStatus) {
-                    console.error(`Erreur de géocodage pour ${cityName}: ${geocodeStatus}`);
+                    console.error(`Erreur de géocodage pour ${address}: ${geocodeStatus}`);
                   }
                 }
               }
@@ -158,7 +450,80 @@
       }
     }
 
-    // Couleur à partir d'un numéro
+    // Fonction de recherche dans les marqueurs
+    function searchMarkers() {
+      const searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
+      if (!searchTerm) return;
+      if (searchTerm !== lastSearchTerm) {
+        searchResults = markers.filter(marker => {
+          return marker.customData.cityName.includes(searchTerm) ||
+                 marker.customData.name.includes(searchTerm) ||
+                 marker.customData.espece.includes(searchTerm);
+        });
+        currentSearchIndex = 0;
+        lastSearchTerm = searchTerm;
+      }
+      if (searchResults.length === 0) {
+        alert("Aucun marqueur correspondant n'a été trouvé.");
+        return;
+      }
+      const markerFound = searchResults[currentSearchIndex % searchResults.length];
+      currentSearchIndex++;
+      map.setCenter(markerFound.getPosition());
+      map.setZoom(10);
+      infoWindow.setContent(markerFound.getTitle());
+      infoWindow.open(map, markerFound);
+      const debugLines = document.querySelectorAll("#debug-info > div");
+      debugLines.forEach(line => line.classList.remove("highlight"));
+      const debugLine = document.getElementById(`debug-line-${markerFound.customIndex}`);
+      if (debugLine) {
+        debugLine.classList.add("highlight");
+      }
+    }
+// Rechercher ville/adresse 
+async function manualSearch() {
+  const input = document.getElementById("manualSearchInput");
+  const query = input.value.trim();
+
+  if (!query) return alert("Veuillez saisir une ville ou une adresse");
+
+  const geocoder = new google.maps.Geocoder();
+
+  try {
+    const location = await geocodeWithCache(geocoder, query);
+    const latLng = new google.maps.LatLng(location.lat, location.lng);
+
+    // Centre la carte
+    map.setCenter(latLng);
+    map.setZoom(12);
+
+    // marqueur temporaire
+    const marker = new google.maps.Marker({
+      position: latLng,
+      map: map,
+      title: query,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: '#FF0000',
+        fillOpacity: 0.8,
+        strokeColor: '#000',
+        strokeWeight: 2,
+        scale: 10
+      }
+    });
+
+    // Popup
+    const infoWindow = new google.maps.InfoWindow({
+      content: `<b>${query}</b>`
+    });
+    marker.addListener("click", () => infoWindow.open(map, marker));
+    infoWindow.open(map, marker);
+  } catch (err) {
+    alert("Adresse introuvable : " + err);
+  }
+}
+
+    // couleur à partir d'un numéro
     function getColorFromNumero(numero) {
       const hash = Array.from(numero).reduce((acc, char) => acc + char.charCodeAt(0), 0);
       const r = (hash * 115) % 256;
@@ -166,18 +531,23 @@
       const b = (hash * 1111) % 256;
       return `rgb(${r},${g},${b})`;
     }
-
     document.getElementById("toggle-debug").addEventListener("click", function () {
-      const debugInfo = document.getElementById("debug-info");
-      const arrow = document.getElementById("arrow");
-      if (debugInfo.style.display === "none") {
-        debugInfo.style.display = "block";
-        arrow.textContent = "▼";
-      } else {
-        debugInfo.style.display = "none";
-        arrow.textContent = "▶";
-      }
-    });
+  const debugInfo = document.getElementById("debug-info");
+  const arrow = document.getElementById("arrow");
+  const button = document.getElementById("toggle-debug");
+
+  if (debugInfo.style.display === "none") {
+    debugInfo.style.display = "block";
+    arrow.style.transform = "rotate(90deg)";
+    button.classList.add("open");
+    button.innerHTML = '<span id="arrow" style="transform: rotate(90deg);">▶</span> Masquer les infos';
+  } else {
+    debugInfo.style.display = "none";
+    arrow.style.transform = "rotate(0deg)";
+    button.classList.remove("open");
+    button.innerHTML = '<span id="arrow">▶</span> Afficher les infos';
+  }
+});
 
   </script>
 
