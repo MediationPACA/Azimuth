@@ -1,0 +1,186 @@
+           <!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="TOTEM1.png">
+  <title>Azimuth</title>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <style>
+    /* CSS */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #bfecbb; }
+    .header h1 { font-size: 30px; font-weight: bold; }
+    .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px; }
+    .page { font-size: 22px; font-weight: bold; margin-top: 3px; }
+    #map { height: 410px; width: 100%; }
+    #error-message { color: red; }
+    #debug-info { margin-top: 10px; white-space: pre-wrap; font-family: Arial, sans-serif; }
+    #legend { margin-top: 1px; padding: 1px; border: 0px solid black; width: fit-content; background-color: none; font-family: Arial, sans-serif; }
+    #legend ul { list-style: none; padding: 0; margin: 0; }
+    #legend li { margin-bottom: 4px; }
+    #search-container { margin: 10px 0; font-family: Arial, sans-serif; }
+    #toggle-debug { padding: 5px 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Azimuth</h1>
+  </div>
+  <p class="page">Azimuth Chiroptères</p>
+  <div id="map"></div>
+
+  <div id="search-container"> 
+    <div id="legend">
+      <strong>Légende :</strong>
+      <ul id="legend-list"></ul>
+    </div>
+    <div id="error-message"></div>
+    <div id="debug-container">
+      <button id="toggle-debug">
+        <span id="arrow">▶</span> Afficher liste infos 
+      </button>
+      <div id="debug-info" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    let map;
+    let markers = [];
+    const GEOCODING_CACHE_KEY = 'geocodingCache';
+    const GEOCODING_DELAY = 5;
+    let infoWindow;
+
+    const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
+    
+    // Initialisation de la carte
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 8.8,
+        center: {lat: 43.453354, lng: 6.288334}
+      });
+      infoWindow = new google.maps.InfoWindow();
+      updateData(csvURL1);
+      setInterval(() => updateData(csvURL1), 120000);
+    }
+
+    // Géocodage avec cache
+    async function geocodeWithCache(geocoder, cityName) {
+      let cache = JSON.parse(localStorage.getItem(GEOCODING_CACHE_KEY) || '{}');
+      if (cache[cityName]) {
+        console.log(`Utilisation du cache pour ${cityName}`);
+        return cache[cityName];
+      }
+      await new Promise(resolve => setTimeout(resolve, GEOCODING_DELAY));
+      return new Promise((resolve, reject) => {
+        geocoder.geocode({ address: cityName + ', France' }, (results, status) => {
+          if (status === 'OK') {
+            const location = results[0].geometry.location;
+            cache[cityName] = { lat: location.lat(), lng: location.lng() };
+            localStorage.setItem(GEOCODING_CACHE, JSON.stringify(cache));
+            console.log(`Géocodage réussi pour ${cityName}`);
+            resolve({ lat: location.lat(), lng: location.lng() });
+          } else {
+            console.error(`Erreur de géocodage pour ${cityName}: ${status}`);
+            reject(status);
+          }
+        });
+      });
+    }
+
+    // Données CSV 
+    function extractData(row, csvUrl) {
+      if (csvUrl === csvURL1) {
+        return {
+          repondu: row[1]?.trim() || '',
+          Numero: row[2]?.trim() || '',
+          cityName: row[3]?.trim() || '', // Assurez-vous que c'est le bon index
+          azim: row[4]?.trim() || '',
+        };
+      }
+      return {};
+    }
+
+    // Légende en fonction du CSV 
+    function updateLegend(csvUrl) {
+      const legend = document.getElementById("legend");
+      const legendList = document.getElementById("legend-list");
+      if (csvUrl === csvURL1) {
+        legend.style.display = 'inline';
+        legendList.innerHTML = `
+          <span style="font-size:20px;">⭕:</span> Position
+        `;
+      }
+    } 
+
+    // Lecture du CSV et ajout des marqueurs
+    async function updateData(csvUrl) {
+      updateLegend(csvUrl);
+      const geocoder = new google.maps.Geocoder();
+      let debugInfoHTML = "";
+      markers.forEach(marker => marker.setMap(null));
+      markers = [];
+      
+      try {
+        const response = await fetch(csvUrl);
+        const csv = await response.text();
+        Papa.parse(csv, {
+          complete: async function(results) {
+            let markerCount = 0;
+            for (let i = 1; i < results.data.length; i++) {
+              const row = results.data[i];
+              if (row.length > 3) { // Assurez-vous qu'il y a suffisamment de colonnes
+                let { repondu, Numero, cityName, azim } = extractData(row, csvUrl);
+                if (cityName && cityName.trim() !== "") {
+                  try {
+                    const location = await geocodeWithCache(geocoder, cityName);
+                    const marker = new google.maps.Marker({
+                      position: { lat: location.lat, lng: location.lng },
+                      map: map,
+                      title: `${cityName} - ${repondu} - Azimuth: ${azim}`,
+                    });
+                    markers.push(marker);
+                    markerCount++;
+                    debugInfoHTML += `<div>${cityName} - ${repondu} - Azimuth: ${azim}</div>`;
+                  } catch (geocodeStatus) {
+                    console.error(`Erreur de géocodage pour ${cityName}: ${geocodeStatus}`);
+                  }
+                }
+              }
+            }
+            document.getElementById('debug-info').innerHTML = debugInfoHTML;
+          }
+        });
+      } catch (error) {
+        console.error('Erreur:', error);
+        document.getElementById('error-message').textContent = "Erreur lors de la récupération des données. Vérifiez la console.";
+      }
+    }
+
+    // Couleur à partir d'un numéro
+    function getColorFromNumero(numero) {
+      const hash = Array.from(numero).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const r = (hash * 115) % 256;
+      const g = (hash * 1114) % 256;
+      const b = (hash * 1111) % 256;
+      return `rgb(${r},${g},${b})`;
+    }
+
+    document.getElementById("toggle-debug").addEventListener("click", function () {
+      const debugInfo = document.getElementById("debug-info");
+      const arrow = document.getElementById("arrow");
+      if (debugInfo.style.display === "none") {
+        debugInfo.style.display = "block";
+        arrow.textContent = "▼";
+      } else {
+        debugInfo.style.display = "none";
+        arrow.textContent = "▶";
+      }
+    });
+
+  </script>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfGs1gnWhKjQvgeebgoMtptzwjMwBKwh0&libraries=places,marker&callback=initMap" async defer></script>
+</body>
+</html>
