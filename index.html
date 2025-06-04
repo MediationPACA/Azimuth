@@ -290,7 +290,7 @@
             for (let i = 1; i < results.data.length; i++) {
               const row = results.data[i];
               if (row.length >= minColumns) {
-                let { name, repondu, Numero, cityName, azimut, address, status, seil, Esp, info, marqueur, Emoj, Emoj2, poste, jourdispo } = extractData(row, csvUrl);
+                let { name, repondu, Numero, cityName,espece, azimut, address, status, seil, Esp, info, marqueur, Emoj, Emoj2, poste, jourdispo } = extractData(row, csvUrl);
                 const currentDay = new Date().toLocaleString('fr-FR', { weekday: 'long' });
                 
                
@@ -424,7 +424,7 @@ if (csvUrl === csvURL1 && status.trim().toLowerCase() === "intervention") {
                     };
                     marker.customIndex = markerCount;
                     marker.addListener("click", () => {
-                      infoWindow.setContent(`<div style="font-size:20px; font-weight:bold; color:#333;">${name} (${espece} <br>${jourdispo}<br>${info}<br>${Emoj} ${Emoj2})</div>`);
+                      infoWindow.setContent(`<div style="font-size:20px; font-weight:bold; color:#333;">${repondu} (${espece}) <br>${Numero}<br>${info}<br>${Emoj} ${Emoj2}</div>`);
                       infoWindow.open(map, marker);
                       
                     });
