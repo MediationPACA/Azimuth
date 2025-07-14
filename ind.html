@@ -1,0 +1,14 @@
+<input type="file" id="csvFile" accept=".csv"><br>
+<select id="numeroSelect">
+  <option value="">Tous les individus</option>
+</select><br><br>
+
+<input type="range" id="timeSlider" min="0" max="0" value="0" step="1" style="width:100%;">
+<span id="timeLabel">Temps</span>
+<button id="playPauseBtn">▶️ Lecture</button>
+
+<div id="map" style="height: 600px;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfGs1gnWhKjQvgeebgoMtptzwjMwBKwh0&callback=initMap" async defer></script>
+<script src="azimut.js"></script>

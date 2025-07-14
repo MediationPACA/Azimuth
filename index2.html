@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="TOTEM1.png">
+  <title>Urgence 2025 - Azimuts Chiroptères</title>
+
+  <!-- Bibliothèque Turf.js pour les opérations géospatiales -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <style>
+    body.noscroll {
+      overflow: hidden;
+    }
+
+    /* CSS Général */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #bfecbb; }
+    .header h1 { font-size: 30px; font-weight: bold; }
+    .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px; }
+    .page { font-size: 22px; font-weight: bold; margin-top: 3px; }
+    #map { height: 700px; width: 100%; }
+    #error-message { color: red; }
+    #debug-info { margin-top: 10px; white-space: pre-wrap; font-family: Arial, sans-serif; }
+    #legend { margin-top: 1px; padding: 1px; border: 0px solid black; width: fit-content; background-color: none; font-family: Arial, sans-serif; }
+    #legend ul { list-style: none; padding: 0; margin: 0; }
+    #legend li { margin-bottom: 4px; }
+    #search-container { margin: 10px 0; font-family: Arial, sans-serif; }
+    #search-input { padding: 5px; width: 250px; font-size: 14px; }
+    #search-button { padding: 5px 10px; font-size: 14px; }
+    #manualSearchInput { padding: 5px 20px; font-size: 14px; }
+    #manualSearchButton { padding: 5px 10px; font-size: 14px; }
+    #toggle-debug { padding: 5px 10px; font-size: 14px; }
+    .highlight { background-color: yellow; }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: none;
+      padding: 10px;
+      background-color: #7fa77b;
+    }
+    .logout-button {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      background-color: #7fa77b;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 14px 30px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .logout-button:hover {
+      background-color: #c82333;
+    }
+    .link1 {
+      display: inline-block;
+      padding: 3px 10px;
+      background-color: #e6e6e6;
+      color: rgb(0, 0, 0);
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: none;
+    }
+    .link1:hover {
+      background-color: #7fa77b;
+    }
+    .link:hover {
+      background-color: #7fa77b;
+    }
+    .sites {
+      padding: 11px 12px;
+      font-weight: bold;
+    }
+    .sites:hover {
+      background-color: #c82333;
+    }
+    /* Styles pour le curseur temporel */
+    #time-slider-container {
+        margin: 20px 0;
+        padding: 10px;
+        background-color: #f0f0f0;
+        border-radius: 8px;
+        display: none; /* Masqué par défaut */
+    }
+    #time-slider {
+        width: 80%;
+        margin: 0 auto;
+    }
+    #time-display {
+        margin-top: 10px;
+        font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Azimuts</h1>
+  </div>
+  <p class="page">Données Chiroptères</p>
+  <div style="margin: 10px;">
+    <label for="numeroSelect">Choisir un individu :</label>
+    <select id="numeroSelect">
+      <option value="">Tous</option>
+    </select>
+  </div>
+  <div style="margin: 10px;">
+    <label for="jourSelect">Choisir un jour :</label>
+    <select id="jourSelect">
+      <option value="">Tous les jours</option>
+    </select>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="search-container">
+    <input type="text" id="search-input" placeholder="Rechercher un marqueur" />
+    <button id="search-button">Rechercher</button>
+    <div id="legend"></div>
+    <div id="error-message"></div>
+
+    <!-- Nouveau Curseur Temporel pour la Trajectoire -->
+    <div id="time-slider-container">
+        <h3>Suivi Temporel des Trajectoires (par intervalles de 30s)</h3>
+        <!-- Step est de 30 secondes en millisecondes (30 * 1000) -->
+        <input type="range" id="time-slider" min="0" max="100" value="100" step="30000"> 
+        <div id="time-display"></div>
+    </div>
+
+    <div id="debug-container">
+      <button id="toggle-debug"><span id="arrow">▶</span> Afficher les infos</button>
+      <div id="debug-info" style="display: none;"></div>
+    </div>
+  </div>
+
+  <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdxk7Qju3plLpTKDVwHlyfJ--PucsApPSCteGgEIx5EIFK8Sw/viewform?embedded=true" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0">Chargement…</iframe>
+  <iframe src="https://docs.google.com/spreadsheets/d/1DS6Ictl46lEGFWpbA3r82lmDsYJL2tQw4Vkxj0je9sB/edit?gid=1940485869#gid=1940485869" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0"></iframe>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script>
+    let map;
+    let markers = []; // Stocke les marqueurs principaux (points d'origine)
+    let azimutLines = []; // Stocke les polylignes d'azimuts
+    let intersectionMarkers = []; // Stocke les marqueurs des points d'intersection
+    let trajectoryPolylines = new Map(); // Map pour stocker les polylignes de trajectoires par Numero
+    let allIntersections = new Map(); // Stocke toutes les intersections calculées pour le filtrage temporel
+
+    const GEOCODING_CACHE_KEY = 'geocodingCache';
+    const GEOCODING_DELAY = 5; // Délai entre les requêtes de géocodage pour éviter les limites de l'API
+    let infoWindow; // Fenêtre d'information Google Maps
+    let searchResults = [];
+    let currentSearchIndex = 0;
+    let lastSearchTerm = "";
+    let selectedNumero = ""; // Numéro d'individu sélectionné
+    let selectedDay = ""; // Jour sélectionné (chaîne de date 'YYYY-MM-DD')
+    let currentDayAzimuths = []; // Lignes d'azimut pour le jour actuellement sélectionné (filtrées par selectedDay)
+    let currentDayIntersections = []; // Intersections pour le jour actuellement sélectionné (filtrées par selectedDay)
+
+    // URL du fichier CSV de données
+    const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
+    let currentCSV = csvURL1;
+
+    // Écouteur d'événements pour le changement de sélection de l'individu
+    document.getElementById('numeroSelect').addEventListener('change', function () {
+      selectedNumero = this.value;
+      updateData(currentCSV); // Recharge les données filtrées
+    });
+
+    // Écouteur d'événements pour le changement de sélection du jour
+    document.getElementById('jourSelect').addEventListener('change', function () {
+      selectedDay = this.value;
+      console.log("Jour sélectionné:", selectedDay); // Debugging
+      updateData(currentCSV); // Recharge les données filtrées
+    });
+
+    // Fonctions pour créer des icônes SVG personnalisées pour les marqueurs
+    function createPhoneSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">📞</text></svg>`; }
+    function createAmbulanceSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🚑</text></svg>`; }
+    function createCrossSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🩺</text></svg>`; }
+    function createMammSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦊</text></svg>`; }
+    function createOisSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦆</text></svg>`; }
+    function createChiroSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦇</text></svg>`; }
+    function createDomSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐶</text></svg>`; }
+    function createreptSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🦎</text></svg>`; }
+    function createtortSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐢</text></svg>`; }
+    function createserpSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐍</text></svg>`; }
+    function createamphiSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐸</text></svg>`; }
+    function createTriangleSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg width="20" height="20" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><polygon points="15,5 25,25 5,25" fill="${color}" stroke="black" stroke-width="2" /></svg>`; }
+    function createInterventionSVG(color) { return `data:image/svg+xml;utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><text x="1" y="42" font-size="40" fill="${color}">⭕</text> </svg>`; }
+
+    // Géocodage avec cache local (localStorage)
+    async function geocodeWithCache(geocoder, cityName) {
+      let cache = JSON.parse(localStorage.getItem(GEOCODING_CACHE_KEY) || '{}');
+      if (cache[cityName]) {
+        console.log(`Utilisation du cache pour ${cityName}`);
+        return cache[cityName];
+      }
+      // Délai pour respecter les limites de l'API de géocodage
+      await new Promise(resolve => setTimeout(resolve, GEOCODING_DELAY));
+      return new Promise((resolve, reject) => {
+        geocoder.geocode({ address: cityName + ', France' }, (results, status) => {
+          if (status === 'OK') {
+            const location = results[0].geometry.location;
+            cache[cityName] = { lat: location.lat(), lng: location.lng() };
+            localStorage.setItem(GEOCODING_CACHE_KEY, JSON.stringify(cache));
+            console.log(`Géocodage réussi pour ${cityName}`);
+            resolve({ lat: location.lat(), lng: location.lng() });
+          } else {
+            console.error(`Erreur de géocodage pour ${cityName}: ${status}`);
+            reject(status);
+          }
+        });
+      });
+    }
+
+    // Extrait les données d'une ligne CSV
+    function extractData(row, csvUrl) {
+      if (csvUrl === csvURL1) {
+        // Format de date: JJ/MM/AAAA HH:MM:SS
+        const seilRaw = row[0]?.trim() || '';
+        let parsedDate = null;
+        try {
+            // Sépare les composants de date et d'heure
+            const parts = seilRaw.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})/);
+            if (parts) {
+                // Construction robuste de la date pour éviter les problèmes de fuseau horaire
+                const year = parseInt(parts[3], 10);
+                const month = parseInt(parts[2], 10) - 1; // Mois basé sur 0
+                const day = parseInt(parts[1], 10);
+                const timeParts = parts[4].split(':');
+                const hours = parseInt(timeParts[0], 10);
+                const minutes = parseInt(timeParts[1], 10);
+                const seconds = parseInt(timeParts[2], 10);
+                parsedDate = new Date(year, month, day, hours, minutes, seconds);
+
+                // Valide si le parsedDate est une date valide
+                if (isNaN(parsedDate.getTime())) {
+                    console.warn(`Date invalide créée pour: ${seilRaw}. Objet Date: ${parsedDate}`);
+                    parsedDate = null; // Définit sur null si invalide
+                }
+            } else {
+                console.warn(`La chaîne de date ne correspond pas au format attendu: ${seilRaw}`);
+            }
+        } catch (e) {
+            console.error(`Erreur de parsing de date pour: ${seilRaw}`, e);
+            parsedDate = null;
+        }
+
+        return {
+          name: row[9]?.trim() || '',
+          repondu: row[1]?.trim() || '',
+          Numero: row[2]?.trim() || '',
+          cityName: row[3]?.trim() || '',
+          espece: row[4]?.trim() || '',
+          address: (row[12]?.trim() ? row[12].trim() : row[3]?.trim()) || '',
+          status: row[13]?.trim() || '',
+          seil: seilRaw,           // Garde la chaîne originale pour l'affichage
+          parsedDate: parsedDate, // Ajoute l'objet Date parsé
+          Esp: row[14]?.trim() || '',
+          info: row[6]?.trim() || '',
+          Emoj: row[15]?.trim() || '',
+          Emoj2: row[11]?.trim() || '',
+          jourdispo: row[15]?.trim() || '',
+          azimut: row[4]?.trim() || '', // Assure que cette colonne contient l'angle de l'azimut
+        };
+      }
+      return {};
+    }
+
+    // Met à jour la légende (non directement affectée par la nouvelle logique, mais conservée)
+    function updateLegend(csvUrl) {
+      const legend = document.getElementById("legend");
+      if (csvUrl === csvURL1) {
+        legend.style.display = 'inline';
+      } else {
+        legend.style.display = 'none';
+      }
+    }
+
+    // Initialisation de la carte Google Maps
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 8.8,
+        center: { lat: 43.453354, lng: 6.288334 } // Coordonnées initiales (par exemple, sud de la France)
+      });
+      infoWindow = new google.maps.InfoWindow();
+      updateData(currentCSV); // Charge les données initiales
+      // N'active pas le rafraîchissement automatique si le suivi temporel est utilisé intensivement,
+      // car cela pourrait réinitialiser le curseur.
+      // setInterval(() => updateData(currentCSV), 120000); // Met à jour toutes les 2 minutes (120000 ms)
+    }
+
+    /**
+     * Calcule un point le long d'un azimut donné à une certaine distance,
+     * renvoyant un tableau [longitude, latitude] pour Turf.js.
+     * Utilise turf.destination pour des calculs géodésiques précis.
+     * @param {google.maps.LatLng} startPoint Point de départ.
+     * @param {number} azimut Angle de l'azimut en degrés.
+     * @param {number} distanceKm Distance en kilomètres.
+     * @returns {Array<number>} Coordonnées du point de destination [longitude, latitude].
+     */
+    function getTurfPointAtDistanceAndBearing(startPoint, azimut, distanceKm) {
+        // Convertit google.maps.LatLng en un point Turf.js (GeoJSON [longitude, latitude])
+        const origin = turf.point([startPoint.lng(), startPoint.lat()]);
+        // Calcule la destination le long de la géodésique
+        const destination = turf.destination(origin, distanceKm, azimut, { units: 'kilometers' });
+        // Retourne les coordonnées du point de destination
+        return destination.geometry.coordinates; // [longitude, latitude]
+    }
+
+    // Génère une couleur distincte à partir d'une chaîne (par exemple, une date)
+    function getColorFromHashString(hashString) {
+      let hash = 0;
+      for (let i = 0; i < hashString.length; i++) {
+        hash = hashString.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const c = (hash & 0x00FFFFFF)
+          .toString(16)
+          .toUpperCase();
+      return "#" + "00000".substring(0, 6 - c.length) + c;
+    }
+
+    // Génère une couleur à partir d'un numéro (pour les marqueurs individuels et les trajectoires)
+    function getColorFromNumero(numero) {
+      const hash = String(numero).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const r = (hash * 115) % 256;
+      const g = (hash * 114) % 256;
+      const b = (hash * 113) % 256;
+      return `rgb(${r},${g},${b})`;
+    }
+
+
+    // Lit le CSV et ajoute les marqueurs
+    async function updateData(csvUrl) {
+      console.log("--- Début de updateData ---");
+      updateLegend(csvUrl);
+      const minColumns = 4; // Nombre minimum de colonnes attendues dans le CSV
+      const geocoder = new google.maps.Geocoder();
+      let debugInfoHTML = "";
+
+      // Efface tous les éléments précédents de la carte
+      markers.forEach(marker => marker.setMap(null));
+      azimutLines.forEach(line => line.setMap(null));
+      intersectionMarkers.forEach(marker => marker.setMap(null));
+      trajectoryPolylines.forEach(polyline => polyline.setMap(null));
+
+      // Réinitialise les tableaux et maps de stockage
+      markers = [];
+      azimutLines = [];
+      intersectionMarkers = [];
+      trajectoryPolylines.clear();
+      allIntersections.clear(); // Efface toutes les intersections pour un nouveau calcul
+      currentDayAzimuths = []; // Efface les azimuts du jour actuel
+      currentDayIntersections = []; // Efface les intersections du jour actuel
+
+      // Structure pour regrouper les données d'azimuts par individu
+      // Clé: Numero, Valeur: Tableau d'objets azimut, chacun avec un originalRowIndex unique
+      const azimutDataByNumero = new Map();
+
+      try {
+        const response = await fetch(csvUrl);
+        const csv = await response.text();
+        Papa.parse(csv, {
+          complete: async function(results) {
+            const numerosSet = new Set();
+            const datesSet = new Set(); // Nouveau Set pour les dates uniques
+
+            // Récupère tous les numéros et dates uniques pour les sélecteurs
+            results.data.forEach(row => {
+              if (row.length >= minColumns) {
+                const { Numero, parsedDate } = extractData(row, csvUrl);
+                if (Numero) numerosSet.add(Numero);
+                if (parsedDate && !isNaN(parsedDate.getTime())) datesSet.add(parsedDate.toDateString()); // Stocke la chaîne de date si valide
+              }
+            });
+
+            // Remplit le sélecteur d'individus
+            const numeroSelectElement = document.getElementById("numeroSelect");
+            numeroSelectElement.innerHTML = '<option value="">Tous</option>';
+            [...numerosSet].sort().forEach(numero => {
+              const option = document.createElement("option");
+              option.value = numero;
+              option.textContent = `Individu ${numero}`;
+              numeroSelectElement.appendChild(option);
+            });
+            // Assure que l'individu précédemment sélectionné reste sélectionné
+            numeroSelectElement.value = selectedNumero;
+
+            // Remplit le sélecteur de jours
+            const jourSelectElement = document.getElementById("jourSelect");
+            jourSelectElement.innerHTML = '<option value="">Tous les jours</option>';
+            // Trie les dates de la plus ancienne à la plus récente
+            const sortedDates = Array.from(datesSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+            sortedDates.forEach(dateString => {
+              const option = document.createElement("option");
+              option.value = dateString;
+              option.textContent = new Date(dateString).toLocaleDateString('fr-FR'); // Formate pour l'affichage
+              jourSelectElement.appendChild(option);
+            });
+            // Assure que le jour précédemment sélectionné reste sélectionné
+            jourSelectElement.value = selectedDay;
+
+
+            // Traite chaque ligne pour créer les marqueurs principaux et stocker les données d'azimuts
+            for (let i = 1; i < results.data.length; i++) { // Commence à 1 pour sauter l'en-tête
+              const row = results.data[i];
+              if (row.length >= minColumns) {
+                const rowData = extractData(row, csvUrl);
+                let { name, repondu, Numero, cityName, espece, azimut, address, status, seil, parsedDate, Esp, info, Emoj, Emoj2, jourdispo } = rowData;
+
+                // Filtre par individu si un individu est sélectionné
+                if (selectedNumero && Numero !== selectedNumero) continue;
+                // Si un jour est sélectionné, on ne crée les marqueurs d'origine et lignes d'azimuts que pour ce jour
+                if (selectedDay && parsedDate && parsedDate.toDateString() !== selectedDay) {
+                  // Si un jour est sélectionné et que la ligne ne correspond pas à ce jour, on la saute
+                  continue;
+                }
+
+                // Passe si parsedDate est invalide
+                if (!parsedDate || isNaN(parsedDate.getTime())) {
+                    console.warn(`Ligne ${i} ignorée en raison d'un parsedDate invalide: ${seil}`);
+                    continue;
+                }
+
+                let markerColor = getColorFromNumero(Numero); // Couleur pour le marqueur de l'individu
+                let icon;
+
+                // Détermine l'icône du marqueur en fonction de l'espèce
+                const lowerEsp = Esp.toLowerCase();
+                if (lowerEsp.includes("oiseau")) {
+                  icon = { url: createOisSVG(markerColor) };
+                } else if (lowerEsp.includes("mammifère") || lowerEsp.includes("mammifere")) {
+                  icon = { url: createMammSVG(markerColor) };
+                } else if (lowerEsp.includes("chiroptère") || lowerEsp.includes("chiropter")) {
+                  icon = { url: createChiroSVG(markerColor) };
+                } else if (lowerEsp.includes("serpent")) {
+                  icon = { url: createserpSVG(markerColor) };
+                } else if (lowerEsp.includes("tortue")) {
+                  icon = { url: createtortSVG(markerColor) };
+                } else if (lowerEsp.includes("domestique")) {
+                  icon = { url: createDomSVG(markerColor) };
+                } else if (lowerEsp.includes("amphibien")) {
+                  icon = { url: createamphiSVG(markerColor) };
+                } else if (lowerEsp.includes("reptile")) {
+                  icon = { url: createreptSVG(markerColor) };
+                } else {
+                  icon = { url: createTriangleSVG(markerColor) }; // Icône par défaut si l'espèce n'est pas reconnue
+                }
+                icon.optimized = false; // Désactive l'optimisation pour conserver la taille de l'icône SVG
+
+                try {
+                  if (!address || address.trim() === "") continue; // Passe la ligne si l'adresse est vide
+                  const location = await geocodeWithCache(geocoder, address);
+                  const finalPosition = new google.maps.LatLng(location.lat, location.lng);
+
+                  // Crée le marqueur principal (toujours visible)
+                  const marker = new google.maps.Marker({
+                    position: finalPosition,
+                    map: map,
+                    title: `${name} ${espece} \n${jourdispo}\n${info} ${Emoj} ${Emoj2}`,
+                    icon: icon,
+                    zIndex: 10 // Assure que le marqueur est au-dessus des lignes d'azimuts
+                  });
+                  marker.customData = {
+                    cityName: cityName.toLowerCase(),
+                    name: name.toLowerCase(),
+                    espece: espece.toLowerCase(),
+                    parsedDate: parsedDate // Stocke la date pour filtrage ultérieur si besoin
+                  };
+                  markers.push(marker);
+                  marker.addListener("click", () => {
+                    infoWindow.setContent(`<div style="font-size:20px; font-weight:bold; color:#333;">${repondu} (${espece}) <br>${Numero}<br>${info}<br>${Emoj} ${Emoj2}</div>`);
+                    infoWindow.open(map, marker);
+                  });
+
+                  // Si le statut est "intervention", ajoute un marqueur d'intervention
+                  if (status && status.trim().toLowerCase() === "intervention") {
+                    const interventionMarker = new google.maps.Marker({
+                      position: finalPosition,
+                      map: map,
+                      icon: { url: createInterventionSVG(markerColor) },
+                      zIndex: 1 // Moins prioritaire que le marqueur principal
+                    });
+                    markers.push(interventionMarker);
+                  }
+
+                  // Traite les azimuts avec Turf.js
+                  const azimutAngle = parseFloat(azimut);
+                  if (!isNaN(azimutAngle) && parsedDate) { // S'assure que parsedDate est valide
+                    const AZIMUT_LINE_LENGTH_KM = 22; // Longueur de la ligne d'azimut en km
+
+                    const turfStartPoint = [finalPosition.lng(), finalPosition.lat()];
+                    const turfEndPoint = getTurfPointAtDistanceAndBearing(finalPosition, azimutAngle, AZIMUT_LINE_LENGTH_KM);
+
+                    let azimutLineColor;
+                    if (selectedDay) { // Si un jour est sélectionné, la couleur est basée sur ce jour
+                        azimutLineColor = getColorFromHashString(selectedDay); // Couleur uniforme pour le jour sélectionné
+                    } else { // Sinon, la couleur est basée sur l'individu
+                        azimutLineColor = getColorFromNumero(Numero);
+                    }
+                    
+                    const azimutLine = new google.maps.Polyline({
+                      path: [finalPosition, new google.maps.LatLng(turfEndPoint[1], turfEndPoint[0])],
+                      geodesic: false, // Ligne non géodésique pour un affichage simple
+                      strokeColor: azimutLineColor, // Utilise la couleur appropriée
+                      strokeOpacity: 0.8,
+                      strokeWeight: 2,
+                      map: null, // Initialement caché si selectedDay est actif, sinon sera affiché après
+                    });
+                    azimutLine.parsedDate = parsedDate; // Stocke la date sur la ligne pour le contrôle temporel
+                    azimutLines.push(azimutLine);
+
+                    // Stocke les données d'azimut pour chaque individu, y compris l'objet Date parsé et un index de ligne unique
+                    if (!azimutDataByNumero.has(Numero)) {
+                      azimutDataByNumero.set(Numero, []);
+                    }
+                    azimutDataByNumero.get(Numero).push({
+                      turfStart: turfStartPoint,
+                      turfEnd: turfEndPoint,
+                      dateHeure: seil,     // Garde la chaîne originale
+                      parsedDate: parsedDate, // Stocke l'objet Date parsé
+                      info: info,
+                      originalRowIndex: i // Stocke l'index de la ligne originale pour une identification unique de cette ligne d'azimut
+                    });
+                  }
+
+                  debugInfoHTML += `<div id="debug-line-${markers.length - 1}" data-index="${markers.length - 1}">${repondu} ---> ${espece} | info : ${info} | lieu découverte : ${cityName} | appel : ${seil}</div>\n`;
+
+                } catch (geocodeStatus) {
+                  console.error(`Erreur de géocodage pour ${address}: ${geocodeStatus}`);
+                }
+              }
+            }
+
+            // --- Calcul et Filtrage des Intersections d'Azimuts ---
+            const rawIntersections = []; // Tableau temporaire pour contenir toutes les intersections potentielles
+
+            azimutDataByNumero.forEach((points, numero) => {
+              if (points.length < 2) return; // Nécessite au moins deux points pour une intersection
+
+              for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                  const pA = points[i]; // Objet Azimut A
+                  const pB = points[j]; // Objet Azimut B
+
+                  // Utilise parsedDate pour une comparaison robuste
+                  const dateA = pA.parsedDate;
+                  const dateB = pB.parsedDate;
+
+                  // **IMPORTANT: Vérifie que les azimuts sont du même jour et sont des dates valides**
+                  if (!dateA || isNaN(dateA.getTime()) || !dateB || isNaN(dateB.getTime()) || dateA.toDateString() !== dateB.toDateString()) {
+                      continue;
+                  }
+
+                  const line1 = turf.lineString([pA.turfStart, pA.turfEnd]);
+                  const line2 = turf.lineString([pB.turfStart, pB.turfEnd]);
+
+                  const intersects = turf.lineIntersect(line1, line2);
+
+                  if (intersects.features.length > 0) {
+                    const intersectionPoint = intersects.features[0].geometry.coordinates;
+                    const intersectionLatLng = new google.maps.LatLng(intersectionPoint[1], intersectionPoint[0]);
+
+                    // Utilise la date la plus ancienne des deux azimuts pour le timestamp de l'intersection
+                    const crossDate = new Date(Math.min(dateA.getTime(), dateB.getTime()));
+
+                    // Calcule les différences de temps pour le filtrage: différence absolue entre la date de l'azimut et la date de l'intersection
+                    const timeDiffFromPA = Math.abs(dateA.getTime() - crossDate.getTime());
+                    const timeDiffFromPB = Math.abs(dateB.getTime() - crossDate.getTime());
+
+                    rawIntersections.push({
+                      latLng: intersectionLatLng,
+                      numero: numero,
+                      pA: pA, // Garde l'objet azimut original A (avec parsedDate, originalRowIndex)
+                      pB: pB, // Garde l'objet azimut original B (avec parsedDate, originalRowIndex)
+                      crossDate: crossDate,
+                      crossTimeInMinutes: (crossDate.getHours() * 60 + crossDate.getMinutes()), // Pour l'affichage de la fenêtre d'information
+                      timeDiffFromPA: timeDiffFromPA,
+                      timeDiffFromPB: timeDiffFromPB,
+                    });
+                  }
+                }
+              }
+            });
+
+            // Logique de filtrage : Sélectionne un seul marqueur par ligne d'azimut (celui le plus proche dans le temps pour cette ligne)
+            // Clé: azimutID (ex: "numero_originalRowIndex"), Valeur: {intersection, minTimeDiff}
+            const azimutLineToChosenIntersection = new Map();
+
+            rawIntersections.forEach(inter => {
+                // Crée des IDs véritablement uniques pour les lignes d'azimut contributives (pA et pB)
+                // Cela garantit que même si 'seil' (chaîne de timestamp) est identique pour différentes lignes,
+                // l'originalRowIndex les rend uniques.
+                const azimutA_ID = `${inter.numero}_azimut_${inter.pA.originalRowIndex}`;
+                const azimutB_ID = `${inter.numero}_azimut_${inter.pB.originalRowIndex}`;
+
+                // Vérifie si cette intersection est la plus proche dans le temps pour l'azimut A
+                if (!azimutLineToChosenIntersection.has(azimutA_ID) || inter.timeDiffFromPA < azimutLineToChosenIntersection.get(azimutA_ID).minTimeDiff) {
+                    azimutLineToChosenIntersection.set(azimutA_ID, { intersection: inter, minTimeDiff: inter.timeDiffFromPA });
+                }
+
+                // Vérifie si cette intersection est la plus proche dans le temps pour l'azimut B
+                // Une intersection peut être la meilleure pour les deux azimuts contributeurs.
+                if (!azimutLineToChosenIntersection.has(azimutB_ID) || inter.timeDiffFromPB < azimutLineToChosenIntersection.get(azimutB_ID).minTimeDiff) {
+                    azimutLineToChosenIntersection.set(azimutB_ID, { intersection: inter, minTimeDiff: inter.timeDiffFromPB });
+                }
+            });
+
+            // Extrait les objets d'intersection uniques qui ont été choisis comme "meilleurs" pour au moins une ligne d'azimut
+            const finalIntersectionsSet = new Set();
+            azimutLineToChosenIntersection.forEach(entry => {
+                finalIntersectionsSet.add(entry.intersection);
+            });
+            let finalIntersections = Array.from(finalIntersectionsSet);
+
+            console.log("Nombre total d'intersections finales (tous jours confondus):", finalIntersections.length); // Debugging
+
+            // Trie ces intersections finales chronologiquement pour le dégradé et la trajectoire
+            finalIntersections.sort((a, b) => {
+                if (a.crossDate && b.crossDate) {
+                    return a.crossDate.getTime() - b.crossDate.getTime();
+                }
+                return 0; // Maintient un ordre stable si les dates sont invalides ou égales
+            });
+
+            // Gère les intersections et azimuts pour le jour sélectionné
+            if (selectedDay) {
+                // Filtrer les intersections pour le jour sélectionné parmi toutes les intersections
+                currentDayIntersections = finalIntersections.filter(inter => 
+                    inter.crossDate && inter.crossDate.toDateString() === selectedDay
+                );
+                currentDayIntersections.sort((a,b) => a.crossDate.getTime() - b.crossDate.getTime()); // S'assurer qu'elles sont triées
+
+                // Filtrer les lignes d'azimut pour le jour sélectionné
+                // NOTE: `azimutLines` contient toutes les lignes créées. Nous filtrons ici celles du `selectedDay`.
+                currentDayAzimuths = azimutLines.filter(line => 
+                    line.parsedDate && line.parsedDate.toDateString() === selectedDay
+                );
+                currentDayAzimuths.sort((a,b) => a.parsedDate.getTime() - b.parsedDate.getTime()); // S'assurer qu'elles sont triées
+
+                console.log(`Nombre de lignes d'azimut pour le jour sélectionné (${selectedDay}):`, currentDayAzimuths.length); // Debugging
+                console.log(`Nombre d'intersections pour le jour sélectionné (${selectedDay}):`, currentDayIntersections.length); // Debugging
+            } else {
+                currentDayIntersections = []; // Aucun jour sélectionné
+                currentDayAzimuths = []; // Aucun jour sélectionné
+                console.log("Aucun jour sélectionné, le suivi temporel est désactivé."); // Debugging
+            }
+
+
+            // Met à jour la plage du curseur temporel et l'affichage en fonction de currentDayIntersections
+            const timeSlider = document.getElementById('time-slider');
+            const timeDisplay = document.getElementById('time-display');
+            const timeSliderContainer = document.getElementById('time-slider-container');
+
+            // Efface tous les marqueurs d'intersection existants de la carte avant de les recréer
+            intersectionMarkers.forEach(marker => marker.setMap(null));
+            intersectionMarkers = []; // Vide le tableau des marqueurs d'intersection
+
+            if (selectedDay && (currentDayIntersections.length > 0 || currentDayAzimuths.length > 0)) {
+                // Déterminer la plage horaire min/max pour le slider en se basant sur toutes les données du jour
+                let minTime = Infinity; // Initialiser avec des valeurs extrêmes
+                let maxTime = -Infinity;
+
+                // Trouver le temps min/max parmi les intersections du jour sélectionné
+                if (currentDayIntersections.length > 0) {
+                    currentDayIntersections.forEach(inter => {
+                        if (inter.crossDate && !isNaN(inter.crossDate.getTime())) {
+                            minTime = Math.min(minTime, inter.crossDate.getTime());
+                            maxTime = Math.max(maxTime, inter.crossDate.getTime());
+                        }
+                    });
+                }
+
+                // Trouver le temps min/max parmi les lignes d'azimut du jour sélectionné
+                if (currentDayAzimuths.length > 0) {
+                    currentDayAzimuths.forEach(line => {
+                        if (line.parsedDate && !isNaN(line.parsedDate.getTime())) {
+                            minTime = Math.min(minTime, line.parsedDate.getTime());
+                            maxTime = Math.max(maxTime, line.parsedDate.getTime());
+                        }
+                    });
+                }
+                
+                if (minTime !== Infinity && maxTime !== -Infinity) { // Si des données valides ont été trouvées
+                    timeSlider.min = minTime;
+                    timeSlider.max = maxTime;
+                    timeSlider.value = minTime; // Commence au début de la plage horaire du jour sélectionné
+                    console.log(`Slider Range for ${selectedDay}: Min=${new Date(minTime).toLocaleString()}, Max=${new Date(maxTime).toLocaleString()}`); // Debugging
+                } else {
+                    // Fallback si aucune donnée temporelle pertinente pour le jour
+                    timeSlider.min = 0;
+                    timeSlider.max = 1;
+                    timeSlider.value = 0;
+                    console.warn(`Aucune donnée temporelle valide pour le jour sélectionné (${selectedDay}). Le slider est inactif.`);
+                }
+
+                timeSlider.style.display = 'block';
+                timeDisplay.style.display = 'block';
+                timeSliderContainer.style.display = 'block';
+
+                // S'assure que l'écouteur d'événements est attaché (ou ré-attaché)
+                timeSlider.oninput = () => {
+                    updateTrajectoryDisplay(timeSlider.value);
+                };
+
+                // Crée les marqueurs d'intersection pour le jour sélectionné
+                // Ces marqueurs sont créés ici et leur visibilité sera gérée par updateTrajectoryDisplay
+                currentDayIntersections.forEach((intersection, index) => {
+                    // Fonctions pour l'interpolation des couleurs (déplacées ici pour la portée)
+                    function interpolateColor(color1, color2, factor) {
+                        const result = color1.slice();
+                        for (let i = 0; i < 3; i++) {
+                            result[i] = Math.round(color1[i] + factor * (color2[i] - color1[i]));
+                        }
+                        return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
+                    }
+
+                    function hexToRgb(hex) {
+                        const r = parseInt(hex.slice(1, 3), 16);
+                        const g = parseInt(hex.slice(3, 5), 16);
+                        const b = parseInt(hex.slice(5, 7), 16);
+                        return [r, g, b];
+                    }
+
+                    // --- Définit de NOUVELLES couleurs pour le dégradé chronologique ---
+                    const firstTwoColor = [255, 255, 150]; // Jaune très pâle (RGB)
+                    const gradientStartColor = hexToRgb("#ADD8E6"); // Bleu clair
+                    const gradientEndColor = hexToRgb("#8B0000");   // Rouge foncé
+
+                    let interpolatedColor;
+
+                    if (index < 2) {
+                        interpolatedColor = `rgb(${firstTwoColor[0]}, ${firstTwoColor[1]}, ${firstTwoColor[2]})`;
+                    } else {
+                        const startIndexForGradient = 2;
+                        const numGradientPoints = currentDayIntersections.length - startIndexForGradient;
+
+                        if (numGradientPoints > 0) {
+                            const factor = (numGradientPoints === 1) ? 0 : (index - startIndexForGradient) / (numGradientPoints - 1);
+                            interpolatedColor = interpolateColor(gradientStartColor, gradientEndColor, factor);
+                        } else {
+                            interpolatedColor = `rgb(${gradientStartColor[0]}, ${gradientStartColor[1]}, ${gradientStartColor[2]})`;
+                        }
+                    }
+
+                    const intersectionMarker = new google.maps.Marker({
+                        position: intersection.latLng,
+                        map: null, // Initialement caché, la visibilité sera gérée par updateTrajectoryDisplay
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            fillColor: interpolatedColor,
+                            fillOpacity: 0.9,
+                            strokeColor: "#000",
+                            strokeWeight: 1,
+                            scale: 8,
+                        },
+                        title: `Croisement pour Individu ${intersection.numero}\n` +
+                               `Date: ${intersection.crossDate ? intersection.crossDate.toLocaleDateString('fr-FR') : 'N/A'}\n` +
+                               `Heure 1: ${intersection.pA.dateHeure || 'N/A'}\n` +
+                               `Heure 2: ${intersection.pB.dateHeure || 'N/A'}\n` +
+                               `Info 1: ${intersection.pA.info || 'Aucune'}\n` +
+                               `Info 2: ${intersection.pB.info || 'Aucune'}`
+                    });
+                    intersectionMarker.crossDate = intersection.crossDate; // Stocke crossDate directement
+                    intersectionMarkers.push(intersectionMarker);
+                    intersectionMarker.addListener("click", () => {
+                        let infoWindowContent = `
+                            <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+                                <h3 style="margin-top: 0; margin-bottom: 8px; color: #0056b3;">Intersection pour Individu ${intersection.numero}</h3>
+                                <p style="margin-bottom: 4px;">
+                                    <strong>Point 1:</strong>
+                                    <br> Heure: ${intersection.pA.dateHeure || 'N/A'}
+                                    <br> Info: ${intersection.pA.info || 'Aucune'}
+                                </p>
+                                <p style="margin-bottom: 0;">
+                                    <strong>Point 2:</strong>
+                                    <br> Heure: ${intersection.pB.dateHeure || 'N/A'}
+                                    <br> Info: ${intersection.pB.info || 'Aucune'}
+                                </p>
+                                ${intersection.crossDate ? `<p style="margin-top: 8px;">Date de croisement (la plus ancienne): ${intersection.crossDate.toLocaleDateString('fr-FR')}</p>` : ''}
+                                ${intersection.crossTimeInMinutes !== -1 ? `<p style="margin-top: 4px;">Heure du croisement: ${Math.floor(intersection.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(intersection.crossTimeInMinutes % 60).toString().padStart(2, '0')}</p>` : ''}
+                                <p style="margin-top: 4px; font-style: italic; color: #666;">
+                                    Ceci représente un point de croisement possible.
+                                </p>
+                            </div>
+                        `;
+                        infoWindow.setContent(infoWindowContent);
+                        infoWindow.open(map, intersectionMarker);
+                    });
+                });
+
+                updateTrajectoryDisplay(timeSlider.value); // Dessin initial pour le jour sélectionné
+            } else {
+                timeSlider.style.display = 'none';
+                timeDisplay.style.display = 'none';
+                timeSliderContainer.style.display = 'none';
+                timeSlider.oninput = null; // Supprime l'écouteur d'événements si non nécessaire
+                // Si aucun jour n'est sélectionné, ou pas d'intersections/azimuts pour le jour, efface tout
+                trajectoryPolylines.forEach(polyline => polyline.setMap(null));
+                trajectoryPolylines.clear();
+                intersectionMarkers.forEach(marker => marker.setMap(null));
+                intersectionMarkers = []; // Vide le tableau également
+                // Réaffiche toutes les lignes d'azimut si "Tous les jours" est sélectionné
+                azimutLines.forEach(line => line.setMap(map));
+            }
+            console.log("--- Fin de updateData ---");
+            document.getElementById('debug-info').innerHTML = debugInfoHTML;
+          }
+        });
+      } catch (error) {
+        console.error('Erreur globale lors de la récupération ou du traitement des données :', error);
+        document.getElementById('error-message').textContent = "Erreur lors de la récupération des données. Vérifiez la console.";
+      }
+    }
+
+    /**
+     * Met à jour les trajectoires affichées en fonction de la valeur actuelle du curseur temporel.
+     * Seules les intersections et les lignes d'azimut se produisant jusqu'à l'heure sélectionnée seront affichées.
+     * Cette fonction n'est pertinente que lorsqu'un jour est sélectionné.
+     * @param {string} selectedTimeValue La valeur du curseur temporel (chaîne de timestamp).
+     */
+    function updateTrajectoryDisplay(selectedTimeValue) {
+        console.log("--- Début de updateTrajectoryDisplay ---");
+        const timeDisplay = document.getElementById('time-display');
+        const selectedTimestamp = parseInt(selectedTimeValue);
+        const displayDate = new Date(selectedTimestamp);
+        timeDisplay.textContent = `Affichage des données jusqu'à: ${displayDate.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        console.log("Curseur temporel à:", displayDate.toLocaleString('fr-FR')); // Debugging
+
+        // Efface les polylignes de trajectoires existantes
+        trajectoryPolylines.forEach(polyline => polyline.setMap(null));
+        trajectoryPolylines.clear();
+
+        // Si aucun jour n'est sélectionné, masque toutes les trajectoires et marqueurs d'intersection,
+        // et s'assure que les lignes d'azimut sont toutes visibles (car pas de suivi temporel actif)
+        if (!selectedDay) { 
+            console.log("selectedDay est vide. Masque les éléments temporels.");
+            intersectionMarkers.forEach(marker => marker.setMap(null));
+            azimutLines.forEach(line => line.setMap(map)); // Toutes les lignes d'azimut deviennent visibles (mode aperçu)
+            return; // Sortir, car le suivi temporel n'est pas actif
+        }
+        
+        // Si un jour est sélectionné, filtre et dessine les trajectoires
+        const intersectionsForCurrentDayGrouped = {}; // Groupe par numéro pour le jour actuel
+        currentDayIntersections.forEach(inter => {
+            if (!intersectionsForCurrentDayGrouped[inter.numero]) {
+                intersectionsForCurrentDayGrouped[inter.numero] = [];
+            }
+            intersectionsForCurrentDayGrouped[inter.numero].push(inter);
+        });
+
+        for (const numero in intersectionsForCurrentDayGrouped) {
+            const trajectoryPoints = [];
+            
+            // Filtre les intersections en fonction de l'heure sélectionnée et les trie chronologiquement
+            const filteredAndSortedIntersections = intersectionsForCurrentDayGrouped[numero]
+                .filter(inter => inter.crossDate && inter.crossDate.getTime() <= selectedTimestamp)
+                .sort((a, b) => a.crossDate.getTime() - b.crossDate.getTime());
+
+            filteredAndSortedIntersections.forEach(inter => {
+                trajectoryPoints.push(inter.latLng);
+            });
+
+            if (trajectoryPoints.length > 1) { // Nécessite au moins deux points pour tracer une ligne
+                const trajectoryPolyline = new google.maps.Polyline({
+                    path: trajectoryPoints,
+                    geodesic: true, // Pour des lignes courbes suivant la surface de la Terre
+                    strokeColor: getColorFromHashString(selectedDay), // Couleur de la trajectoire basée sur le jour sélectionné
+                    strokeOpacity: 1.0,
+                    strokeWeight: 3,
+                    map: map
+                });
+                trajectoryPolylines.set(numero, trajectoryPolyline);
+            }
+        }
+
+        // Masque ou affiche les marqueurs d'intersection en fonction de la plage de temps sélectionnée
+        intersectionMarkers.forEach(marker => {
+            if (marker.crossDate && !isNaN(marker.crossDate.getTime())) { // Utilise le crossDate directement stocké
+                // Vérifie si le marqueur appartient au jour sélectionné ET est dans la plage du curseur temporel
+                if (marker.crossDate.toDateString() === selectedDay && marker.crossDate.getTime() <= selectedTimestamp) {
+                    marker.setMap(map); // Affiche le marqueur
+                    // console.log(`Affichage du marqueur d'intersection à ${marker.crossDate.toLocaleString()}`); // Debugging
+                } else {
+                    marker.setMap(null); // Masque le marqueur
+                }
+            } else {
+                marker.setMap(null); // Masque si crossDate est invalide/manquant ou ne correspond pas au jour sélectionné
+            }
+        });
+
+        // Masque ou affiche les lignes d'azimut en fonction de la plage de temps sélectionnée
+        azimutLines.forEach(line => {
+            // Ne considère les lignes que si leur date correspond au jour sélectionné ET qu'elles sont valides
+            if (line.parsedDate && !isNaN(line.parsedDate.getTime()) && line.parsedDate.toDateString() === selectedDay) {
+                if (line.parsedDate.getTime() <= selectedTimestamp) {
+                    line.setMap(map); // Affiche la ligne
+                    // console.log(`Affichage de la ligne d'azimut à ${line.parsedDate.toLocaleString()}`); // Debugging
+                } else {
+                    line.setMap(null); // Masque la ligne
+                }
+            } else {
+                line.setMap(null); // Masque les lignes qui ne correspondent pas au jour sélectionné ou ont des dates invalides
+            }
+        });
+        console.log("--- Fin de updateTrajectoryDisplay ---");
+    }
+
+    // Fonction de recherche de marqueurs
+    function searchMarkers() {
+      const searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
+      if (!searchTerm) return; // Ne fait rien si le terme de recherche est vide
+      if (searchTerm !== lastSearchTerm) {
+        searchResults = markers.filter(marker => {
+          return marker.customData.cityName.includes(searchTerm) ||
+            marker.customData.name.includes(searchTerm) ||
+            marker.customData.espece.includes(searchTerm);
+        });
+        currentSearchIndex = 0;
+        lastSearchTerm = searchTerm;
+      }
+      if (searchResults.length === 0) {
+        alert("Aucun marqueur correspondant trouvé.");
+        return;
+      }
+      const markerFound = searchResults[currentSearchIndex % searchResults.length];
+      currentSearchIndex++;
+      map.setCenter(markerFound.getPosition());
+      map.setZoom(10);
+      infoWindow.setContent(markerFound.getTitle());
+      infoWindow.open(map, markerFound);
+      // Removed debug line highlighting for simplicity, can be re-added if needed
+      // const debugLines = document.querySelectorAll("#debug-info > div");
+      // debugLines.forEach(line => line.classList.remove("highlight"));
+      // const debugLine = document.getElementById(`debug-line-${markerFound.customIndex}`);
+      // if (debugLine) {
+      //   debugLine.classList.add("highlight");
+      // }
+    }
+
+    // Fonction de recherche manuelle de ville/adresse
+    async function manualSearch() {
+      const input = document.getElementById("manualSearchInput");
+      const query = input.value.trim();
+
+      if (!query) return alert("Veuillez entrer une ville ou une adresse.");
+
+      const geocoder = new google.maps.Geocoder();
+
+      try {
+        const location = await geocodeWithCache(geocoder, query);
+        const latLng = new google.maps.LatLng(location.lat, location.lng);
+
+        map.setCenter(latLng);
+        map.setZoom(12);
+
+        const marker = new google.maps.Marker({
+          position: latLng,
+          map: map,
+          title: query,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: '#FF0000',
+            fillOpacity: 0.8,
+            strokeColor: '#000',
+            strokeWeight: 2,
+            scale: 10
+          }
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<b>${query}</b>`
+        });
+        marker.addListener("click", () => infoWindow.open(map, marker));
+        infoWindow.open(map, marker);
+      } catch (err) {
+        alert("Adresse non trouvée : " + err);
+      }
+    }
+
+    // Bascule l'affichage des informations de débogage
+    document.getElementById("toggle-debug").addEventListener("click", function () {
+      const debugInfo = document.getElementById("debug-info");
+      const arrow = document.getElementById("arrow");
+      const button = document.getElementById("toggle-debug");
+
+      if (debugInfo.style.display === "none") {
+        debugInfo.style.display = "block";
+        arrow.style.transform = "rotate(90deg)";
+        button.innerHTML = '<span id="arrow" style="transform: rotate(90deg);">▶</span> Masquer les infos';
+      } else {
+        debugInfo.style.display = "none";
+        arrow.style.transform = "rotate(0deg)";
+        button.innerHTML = '<span id="arrow">▶</span> Afficher les infos';
+      }
+    });
+
+    // Écouteurs d'événements pour les boutons de recherche et la touche "Entrée"
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById("search-button").addEventListener("click", searchMarkers);
+      document.getElementById("search-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          searchMarkers();
+        }
+      });
+
+      // Ajoute le champ de recherche d'adresse manuelle si non déjà présent
+      const searchContainer = document.getElementById("search-container");
+      const debugContainer = document.getElementById("debug-container"); // Référence au conteneur du bouton de débogage
+
+      if (!document.getElementById("manualSearchInput")) {
+          const manualSearchInput = document.createElement("input");
+          manualSearchInput.type = "text";
+          manualSearchInput.id = "manualSearchInput";
+          manualSearchInput.placeholder = "Rechercher ville/adresse manuellement";
+          // Insère avant debugContainer, qui est un enfant direct de searchContainer
+          searchContainer.insertBefore(manualSearchInput, debugContainer);
+
+          const manualSearchButton = document.createElement("button");
+          manualSearchButton.id = "manualSearchButton";
+          manualSearchButton.textContent = "Go!";
+          // Insère avant debugContainer
+          searchContainer.insertBefore(manualSearchButton, debugContainer);
+
+          manualSearchButton.addEventListener("click", manualSearch);
+          manualSearchInput.addEventListener("keydown", function(e) {
+              if (e.key === "Enter") {
+                  manualSearch();
+              }
+          });
+      }
+    });
+  </script>
+
+  <!-- Script de l'API Google Maps -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfGs1gnWhKjQvgeebgoMtptzwjMwBKwh0&libraries=places,marker&callback=initMap" async defer></script>
+</body>
+</html>

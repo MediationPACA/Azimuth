@@ -4,25 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="TOTEM1.png">
-  <title>Urgence 2025</title>
- 
+  <title>Urgence 2025 - Azimuts Chiroptères</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
   <style>
     body.noscroll {
-        overflow: hidden; 
+      overflow: hidden;
     }
-</style>
-  
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-  <style>
-    /* CSS */
+
+    /* CSS Général */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; text-align: center; background-color: #bfecbb; }
     .header h1 { font-size: 30px; font-weight: bold; }
     .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px; }
-    .phone { font-size: 32px; font-weight: bold; margin-top: 20px; }
     .page { font-size: 22px; font-weight: bold; margin-top: 3px; }
-    #map { height: 410px; width: 100%; }
+    #map { height: 700px; width: 100%; }
     #error-message { color: red; }
     #debug-info { margin-top: 10px; white-space: pre-wrap; font-family: Arial, sans-serif; }
     #legend { margin-top: 1px; padding: 1px; border: 0px solid black; width: fit-content; background-color: none; font-family: Arial, sans-serif; }
@@ -31,107 +28,129 @@
     #search-container { margin: 10px 0; font-family: Arial, sans-serif; }
     #search-input { padding: 5px; width: 250px; font-size: 14px; }
     #search-button { padding: 5px 10px; font-size: 14px; }
-    #switchMapButton { padding: 5px 10px; font-size: 14px; }
-    #switchMapButton2 { padding: 5px 10px; font-size: 14px; }
-    #switchMapButtonUrgence { padding: 5px 10px; font-size: 14px; }
-    #manualSearchButton { padding: 5px 10px; font-size: 14px; }
     #manualSearchInput { padding: 5px 20px; font-size: 14px; }
+    #manualSearchButton { padding: 5px 10px; font-size: 14px; }
     #toggle-debug { padding: 5px 10px; font-size: 14px; }
     .highlight { background-color: yellow; }
     .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: none;
-            padding: 10px;
-            background-color: #7fa77b;
-        }
-        .logout-button {
-  position: absolute;
-  top: 20px;
-  right: 30px;
-  background-color: #7fa77b;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  padding: 14px 30px;
-  cursor: pointer;
-  z-index: 10;
-}
-.logout-button:hover {
-  background-color: #c82333;
-}
-
-        .link1 {
-  display: inline-block;
-  padding: 3px 10px;
-  background-color: #e6e6e6;
-  color: rgb(0, 0, 0);
-  text-decoration: none;
-  border-radius: 5px;
-  font-weight: none;
-}
-.link1:hover {
-  background-color: #7fa77b;
-}
-.link:hover {
-  background-color: #7fa77b;
-}
-.sites {
-  padding: 11px 12px;
-  font-weight: bold;
-}
-.sites:hover {
-            background-color: #c82333; 
-        }
+      display: flex;
+      justify-content: space-between;
+      align-items: none;
+      padding: 10px;
+      background-color: #7fa77b;
+    }
+    .logout-button {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      background-color: #7fa77b;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 14px 30px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .logout-button:hover {
+      background-color: #c82333;
+    }
+    .link1 {
+      display: inline-block;
+      padding: 3px 10px;
+      background-color: #e6e6e6;
+      color: rgb(0, 0, 0);
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: none;
+    }
+    .link1:hover {
+      background-color: #7fa77b;
+    }
+    .link:hover {
+      background-color: #7fa77b;
+    }
+    .sites {
+      padding: 11px 12px;
+      font-weight: bold;
+    }
+    .sites:hover {
+      background-color: #c82333;
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>Azimuth</h1>
-    
+    <h1>Azimuts</h1>
   </div>
   <p class="page">Données Chiroptères</p>
+  <div style="margin: 10px;">
+    <label for="numeroSelect">Choisir un individu :</label>
+    <select id="numeroSelect">
+      <option value="">Tous</option>
+    </select>
+  </div>
+  <div style="margin: 10px;">
+    <label for="jourSelect">Choisir un jour :</label>
+    <select id="jourSelect">
+      
+<label for="filter-date">Filtrer par jour :</label>
+<input type="date" id="filter-date">
 
+      <option value="">Tous les jours</option>
+    </select>
+  </div>
 
   <div id="map"></div>
 
-  <!-- recherche et légende -->
   <div id="search-container">
-    
-    
     <input type="text" id="search-input" placeholder="Rechercher un marqueur" />
     <button id="search-button">Rechercher</button>
-    <div id="legend">
-    </div>
+    <div id="legend"></div>
     <div id="error-message"></div>
     <div id="debug-container">
-      
+
+<button id="download-intersections-csv" style="margin-top: 10px;">Télécharger les intersections en CSV</button>
+
+      <button id="toggle-debug"><span id="arrow">▶</span> Afficher les infos</button>
       <div id="debug-info" style="display: none;"></div>
-    
+    </div>
   </div>
-<iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdxk7Qju3plLpTKDVwHlyfJ--PucsApPSCteGgEIx5EIFK8Sw/viewform?embedded=true" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0">Chargement…</iframe>
-<iframe src="https://docs.google.com/spreadsheets/d/1DS6Ictl46lEGFWpbA3r82lmDsYJL2tQw4Vkxj0je9s8/edit?gid=1940485869#gid=1940485869" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0"></iframe>
 
- 
+  <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdxk7Qju3plLpTKDVwHlyfJ--PucsApPSCteGgEIx5EIFK8Sw/viewform?embedded=true" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0">Chargement…</iframe>
+  <iframe src="https://docs.google.com/spreadsheets/d/1DS6Ictl46lEGFWpbA3r82lmDsYJL2tQw4Vkxj0je9s8/edit?gid=1940485869#gid=1940485869" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0"></iframe>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <script>
     let map;
     let markers = [];
+    let azimutLines = []; // To store azimuth polylines
+    let intersectionMarkers = []; // To store intersection markers
     const GEOCODING_CACHE_KEY = 'geocodingCache';
     const GEOCODING_DELAY = 5;
     let infoWindow;
     let searchResults = [];
     let currentSearchIndex = 0;
     let lastSearchTerm = "";
-    let urgentMode = false;
-    
-
-  const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
-
-   
+    let selectedNumero = "";
+    let selectedDay = ""; // New global variable for selected day
+let finalIntersections = [];
+    // CSV URL
+    const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
     let currentCSV = csvURL1;
 
-    // icônes SVG
+    // Event listener for individual selection change
+    document.getElementById('numeroSelect').addEventListener('change', function () {
+      selectedNumero = this.value;
+      updateData(currentCSV); // Reload filtered data
+    });
+
+    // Event listener for day selection change
+    document.getElementById('jourSelect').addEventListener('change', function () {
+      selectedDay = this.value;
+      updateData(currentCSV); // Reload filtered data
+    });
+
+    // SVG icons for markers
     function createPhoneSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">📞</text></svg>`; }
     function createAmbulanceSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🚑</text></svg>`; }
     function createCrossSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🩺</text></svg>`; }
@@ -144,14 +163,13 @@
     function createserpSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐍</text></svg>`; }
     function createamphiSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">🐸</text></svg>`; }
     function createTriangleSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg width="20" height="20" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><polygon points="15,5 25,25 5,25" fill="${color}" stroke="black" stroke-width="2" /></svg>`; }
-    function createInterventionSVG(color) {  return `data:image/svg+xml;utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><text x="1" y="42" font-size="40" fill="${color}">⭕</text> </svg>`;
-}
+    function createInterventionSVG(color) { return `data:image/svg+xml;utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><text x="1" y="42" font-size="40" fill="${color}">⭕</text> </svg>`; }
 
-    // géocodage avec cache
+    // Geocoding with cache
     async function geocodeWithCache(geocoder, cityName) {
       let cache = JSON.parse(localStorage.getItem(GEOCODING_CACHE_KEY) || '{}');
       if (cache[cityName]) {
-        console.log(`Utilisation du cache pour ${cityName}`);
+        console.log(`Using cache for ${cityName}`);
         return cache[cityName];
       }
       await new Promise(resolve => setTimeout(resolve, GEOCODING_DELAY));
@@ -161,19 +179,32 @@
             const location = results[0].geometry.location;
             cache[cityName] = { lat: location.lat(), lng: location.lng() };
             localStorage.setItem(GEOCODING_CACHE_KEY, JSON.stringify(cache));
-            console.log(`Géocodage réussi pour ${cityName}`);
+            console.log(`Geocoding successful for ${cityName}`);
             resolve({ lat: location.lat(), lng: location.lng() });
           } else {
-            console.error(`Erreur de géocodage pour ${cityName}: ${status}`);
+            console.error(`Geocoding error for ${cityName}: ${status}`);
             reject(status);
           }
         });
       });
     }
 
-    //  données CSV selon l'URL
+    // Extract data from CSV row
     function extractData(row, csvUrl) {
       if (csvUrl === csvURL1) {
+        // Date format: JJ/MM/AAAA HH:MM:SS
+        const seilRaw = row[0]?.trim() || '';
+        let parsedDate = null;
+        try {
+            // Convert to YYYY-MM-DD HH:MM:SS for robust Date parsing
+            const parts = seilRaw.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})/);
+            if (parts) {
+                parsedDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]} ${parts[4]}`);
+            }
+        } catch (e) {
+            console.error("Date parsing error for:", seilRaw, e);
+        }
+
         return {
           name: row[9]?.trim() || '',
           repondu: row[1]?.trim() || '',
@@ -182,289 +213,531 @@
           espece: row[4]?.trim() || '',
           address: (row[12]?.trim() ? row[12].trim() : row[3]?.trim()) || '',
           status: row[13]?.trim() || '',
-          seil: row[0]?.trim() || '',
+          seil: seilRaw,           // Keep original string for display
+          parsedDate: parsedDate, // Add parsed Date object
           Esp: row[14]?.trim() || '',
-          info: row[6]?.trim() ||'',
+          info: row[6]?.trim() || '',
           Emoj: row[15]?.trim() || '',
           Emoj2: row[11]?.trim() || '',
-          jourdispo: row[15]?.trim() ||'',
-          azimut: row[4]?.trim() || '',
-          
+          jourdispo: row[15]?.trim() || '',
+          azimut: row[4]?.trim() || '', // Ensure this column contains the azimuth angle
         };
-      
       }
       return {};
     }
+function datesAreSameDay(d1, d2) {
+  return d1 instanceof Date && d2 instanceof Date &&
+         d1.getFullYear() === d2.getFullYear() &&
+         d1.getMonth() === d2.getMonth() &&
+         d1.getDate() === d2.getDate();
+}
 
-    // légende en fonction du CSV 
+    // Update legend (not directly affected by new logic, but kept)
     function updateLegend(csvUrl) {
       const legend = document.getElementById("legend");
-      const legendList = document.getElementById("legend-list");
       if (csvUrl === csvURL1) {
         legend.style.display = 'inline';
-       
-      
-      
       } else {
         legend.style.display = 'none';
       }
     }
 
-    // changement CSV / affichage carte
-    function switchMap() {
-      markers.forEach(marker => marker.setMap(null));
-      markers = [];
-      currentCSV = (currentCSV === csvURL1) ? csvURL2 : csvURL1;
-      updateData(currentCSV);
-    }
-    function switchMapToCSV3() {
-      markers.forEach(marker => marker.setMap(null));
-      markers = [];
-      currentCSV = (currentCSV !== csvURL3) ? csvURL3 : csvURL1;
-      updateData(currentCSV);
-    }
-    function switchMapUrgence() {
-      urgentMode = !urgentMode;
-      markers.forEach(marker => marker.setMap(null));
-      markers = [];
-      currentCSV = csvURL2;
-      updateData(currentCSV);
-    }
-   
-
-
-    
-  
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("switchMapButton").addEventListener("click", switchMap);
-    document.getElementById("switchMapButton2").addEventListener("click", switchMapToCSV3);
-    document.getElementById("switchMapButtonUrgence").addEventListener("click", switchMapUrgence);
-    document.getElementById("search-button").addEventListener("click", searchMarkers);
-    document.getElementById("manualSearchButton").addEventListener("click", manualSearch);
-
-    // "Entrée"
-    const input = document.getElementById("manualSearchInput");
-    input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        manualSearch();
-      }
-    });
-  });
-  const input = document.getElementById("search-input");
-    input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        searchMarkers();
-      }
-    });
-
-
-    // initialisation carte
+    // Map initialization
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
         zoom: 8.8,
-        center: {lat: 43.453354, lng: 6.288334}
+        center: { lat: 43.453354, lng: 6.288334 }
       });
       infoWindow = new google.maps.InfoWindow();
       updateData(currentCSV);
-      setInterval(() => updateData(currentCSV), 120000);
+      setInterval(() => updateData(currentCSV), 120000); // Update every 2 minutes
+    }
+  document.getElementById('download-intersections-csv').addEventListener('click', function () {
+    const selectedDateStr = selectedDay;
+
+    if (!selectedDateStr) {
+        alert("Veuillez sélectionner une date pour filtrer les intersections.");
+        return;
     }
 
-    
+    const selectedDay = new Date(selectedDateStr);
 
-    // lecture du CSV et ajout des marqueurs
+    // ✅ Utilise la fonction datesAreSameDay pour comparaison fiable
+    const filtered = finalIntersections.filter(inter =>
+        inter.crossDate && datesAreSameDay(inter.crossDate, selectedDate)
+    );
+
+    if (filtered.length === 0) {
+        alert("Aucun point d'intersection pour ce jour.");
+        return;
+    }
+
+    const headers = [
+        'Individu', 'Date_Croisement', 'Heure_Croisement', 'Latitude', 'Longitude',
+        'Info_Point_1', 'Heure_Point_1',
+        'Info_Point_2', 'Heure_Point_2'
+    ];
+
+    const rows = filtered.map(intersection => {
+        const crossTime = intersection.crossTimeInMinutes !== -1
+            ? `${Math.floor(intersection.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(intersection.crossTimeInMinutes % 60).toString().padStart(2, '0')}`
+            : 'N/A';
+
+        return [
+            intersection.numero,
+            intersection.crossDate.toLocaleDateString('fr-FR'),
+            crossTime,
+            intersection.latLng.lat().toFixed(6),
+            intersection.latLng.lng().toFixed(6),
+            `"${intersection.pA.info || 'Aucune'}"`,
+            `"${intersection.pA.dateHeure || 'N/A'}"`,
+            `"${intersection.pB.info || 'Aucune'}"`,
+            `"${intersection.pB.dateHeure || 'N/A'}"`
+        ].join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+
+    const filename = `intersections_individu_${selectedNumero || 'tous'}_${selectedDateStr.replace(/\//g, '-')}.csv`;
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", filename);
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
+
+    /**
+     * Calculates a point along a given azimuth at a certain distance,
+     * returning an array [longitude, latitude] for Turf.js.
+     * Uses turf.destination for precise geodesic calculations.
+     */
+    function getTurfPointAtDistanceAndBearing(startPoint, azimut, distanceKm) {
+        // Convert google.maps.LatLng to a Turf.js point (GeoJSON [longitude, latitude])
+        const origin = turf.point([startPoint.lng(), startPoint.lat()]);
+        // Calculate the destination along the geodesic
+        const destination = turf.destination(origin, distanceKm, azimut, { units: 'kilometers' });
+        // Return destination point coordinates
+        return destination.geometry.coordinates; // [longitude, latitude]
+    }
+
+    // Function to generate a distinct color from a string (e.g., a date)
+    function getColorFromHashString(hashString) {
+      let hash = 0;
+      for (let i = 0; i < hashString.length; i++) {
+        hash = hashString.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const c = (hash & 0x00FFFFFF)
+          .toString(16)
+          .toUpperCase();
+      return "#" + "00000".substring(0, 6 - c.length) + c;
+    }
+
+
+    // Read CSV and add markers
     async function updateData(csvUrl) {
       updateLegend(csvUrl);
-      const minColumns = (csvUrl === csvURL1) ? 4 : 5;
+      const minColumns = 4;
       const geocoder = new google.maps.Geocoder();
       let debugInfoHTML = "";
-      const markerPositions = new Map();
+
+      // Clear all existing markers, azimuth lines, and intersection markers
       markers.forEach(marker => marker.setMap(null));
+      azimutLines.forEach(line => line.setMap(null));
+      intersectionMarkers.forEach(marker => marker.setMap(null));
       markers = [];
-      
+      azimutLines = [];
+      intersectionMarkers = [];
+
+      // Structure to group azimuth data by individual
+      // Key: Numero, Value: Array of azimut objects, each with a unique originalRowIndex
+      const azimutDataByNumero = new Map();
+
       try {
         const response = await fetch(csvUrl);
         const csv = await response.text();
         Papa.parse(csv, {
           complete: async function(results) {
-            let markerCount = 0;
-            for (let i = 1; i < results.data.length; i++) {
+            const numerosSet = new Set();
+            const datesSet = new Set(); // New Set for unique dates
+
+            // Get all unique numbers and dates for selectors
+            results.data.forEach(row => {
+              if (row.length >= minColumns) {
+                const { Numero, parsedDate } = extractData(row, csvUrl);
+                if (Numero) numerosSet.add(Numero);
+                if (parsedDate) datesSet.add(parsedDate.toDateString()); // Store date string
+              }
+            });
+
+            const numeroSelectElement = document.getElementById("numeroSelect");
+            numeroSelectElement.innerHTML = '<option value="">Tous</option>';
+            [...numerosSet].sort().forEach(numero => {
+              const option = document.createElement("option");
+              option.value = numero;
+              option.textContent = `Individu ${numero}`;
+              numeroSelectElement.appendChild(option);
+            });
+            // Ensure previously selected individual remains selected
+            numeroSelectElement.value = selectedNumero;
+
+            const jourSelectElement = document.getElementById("jourSelect");
+            jourSelectElement.innerHTML = '<option value="">Tous les jours</option>';
+            // Sort dates from oldest to newest
+            const sortedDates = Array.from(datesSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+            sortedDates.forEach(dateString => {
+              const option = document.createElement("option");
+              option.value = dateString;
+              option.textContent = new Date(dateString).toLocaleDateString('fr-FR'); // Format for display
+              jourSelectElement.appendChild(option);
+            });
+            // Ensure previously selected day remains selected
+            jourSelectElement.value = selectedDay;
+
+
+            // Process each row to create main markers and store azimuth data
+            for (let i = 1; i < results.data.length; i++) { // Start at 1 to skip header
               const row = results.data[i];
               if (row.length >= minColumns) {
-                let { name, repondu, Numero, cityName,espece, azimut, address, status, seil, Esp, info, marqueur, Emoj, Emoj2, poste, jourdispo } = extractData(row, csvUrl);
-                const currentDay = new Date().toLocaleString('fr-FR', { weekday: 'long' });
-                
-               
-                
-                if (csvUrl === csvURL1 || csvUrl === csvURL2 || csvUrl === csvURL3) {
+                const rowData = extractData(row, csvUrl);
+                let { name, repondu, Numero, cityName, espece, azimut, address, status, seil, parsedDate, Esp, info, Emoj, Emoj2, jourdispo } = rowData;
 
-                  let markerColor;
-                  let icon;
-                  if (csvUrl === csvURL1) {
-                    markerColor = getColorFromNumero(Numero);
-                  } else if (csvUrl === csvURL2 || csvUrl === csvURL3) {
-                    markerColor = getColorFromNumero(marqueur);
-                  }
-                  try {
-                    if (!address || address.trim() === "") continue;
-                    const location = await geocodeWithCache(geocoder, address);
-                    let finalPosition = new google.maps.LatLng(location.lat, location.lng);
-                    let positionKey = finalPosition.lat() + "," + finalPosition.lng();
-                    let positionsForLocation;
-                    if (markerPositions.has(positionKey)) {
-                      positionsForLocation = markerPositions.get(positionKey);
-                      positionsForLocation.count++;
-                    } 
-                    if (csvUrl === csvURL1) {
-                      const lowerEsp = Esp.toLowerCase();
-                      const lowerStatus = status.trim().toLowerCase();
-                       if(lowerEsp.includes("oiseau")) {
-                        icon = { url: createOisSVG(markerColor) };
-                      } else if(lowerEsp.includes("mammifère") || lowerEsp.includes("mammifere")) {
-                        icon = { url: createMammSVG(markerColor) };
-                      } else if(lowerEsp.includes("chiroptère") || lowerEsp.includes("chiropter")) {
-                        icon = { url: createChiroSVG(markerColor) };
-                      } else if(lowerEsp.includes("serpent")) {
-                        icon = { url: createserpSVG(markerColor) };
-                      } else if(lowerEsp.includes("tortue")) {
-                        icon = { url: createtortSVG(markerColor) };
-                      } else if(lowerEsp.includes("domestique")) {
-                        icon = { url: createDomSVG(markerColor) };
-                      } else if(lowerEsp.includes("amphibien")) {
-                        icon = { url: createamphiSVG(markerColor) };
-                      } else if(lowerEsp.includes("reptile")) {
-                        icon = { url: createreptSVG(markerColor) };
-                      } else {
-                        icon = { url: createTriangleSVG(markerColor) };
-                      }
-                      icon.optimized = false;
-                    
-                      icon.optimized = false;
-                    } else {
-                      if (address === cityName) {
-                        icon = {
-                          path: google.maps.SymbolPath.CIRCLE,
-                          fillColor: markerColor,
-                          fillOpacity: 0.8,
-                          strokeColor: 'black',
-                          strokeWeight: 2,
-                          scale: 12,
-                        };
-                      } else {
-                        icon = {
-                          url: createTriangleSVG(markerColor),
-                          scaledSize: new google.maps.Size(40, 40),
-                        };
-                      }
-                    }
-                    try {
-  const azimutAngle = parseFloat(azimut);
-  if (!isNaN(azimutAngle)) {
-    const distanceMeters = 100000;
-    const R = 6378137;
-    const bearingRad = azimutAngle * Math.PI / 180;
+                // Filter by individual if one is selected
+                if (selectedNumero && Numero !== selectedNumero) continue;
+                // Filter by day if one is selected
+if (selectedDay && parsedDate && !datesAreSameDay(parsedDate, new Date(selectedDay))) continue;
 
-    const lat1 = finalPosition.lat() * Math.PI / 180;
-    const lng1 = finalPosition.lng() * Math.PI / 180;
 
-    const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(distanceMeters / R) +
-      Math.cos(lat1) * Math.sin(distanceMeters / R) * Math.cos(bearingRad)
-    );
-    const lng2 = lng1 + Math.atan2(
-      Math.sin(bearingRad) * Math.sin(distanceMeters / R) * Math.cos(lat1),
-      Math.cos(distanceMeters / R) - Math.sin(lat1) * Math.sin(lat2)
-    );
+                let markerColor = getColorFromNumero(Numero); // Color for individual marker
+                let icon;
 
-    const azimutEnd = new google.maps.LatLng(lat2 * 180 / Math.PI, lng2 * 180 / Math.PI);
+                // Determine marker icon
+                const lowerEsp = Esp.toLowerCase();
+                if (lowerEsp.includes("oiseau")) {
+                  icon = { url: createOisSVG(markerColor) };
+                } else if (lowerEsp.includes("mammifère") || lowerEsp.includes("mammifere")) {
+                  icon = { url: createMammSVG(markerColor) };
+                } else if (lowerEsp.includes("chiroptère") || lowerEsp.includes("chiropter")) {
+                  icon = { url: createChiroSVG(markerColor) };
+                } else if (lowerEsp.includes("serpent")) {
+                  icon = { url: createserpSVG(markerColor) };
+                } else if (lowerEsp.includes("tortue")) {
+                  icon = { url: createtortSVG(markerColor) };
+                } else if (lowerEsp.includes("domestique")) {
+                  icon = { url: createDomSVG(markerColor) };
+                } else if (lowerEsp.includes("amphibien")) {
+                  icon = { url: createamphiSVG(markerColor) };
+                } else if (lowerEsp.includes("reptile")) {
+                  icon = { url: createreptSVG(markerColor) };
+                } else {
+                  icon = { url: createTriangleSVG(markerColor) };
+                }
+                icon.optimized = false;
 
-    new google.maps.Polyline({
-      path: [finalPosition, azimutEnd],
-      geodesic: true,
-      strokeColor: markerColor,
-      strokeOpacity: 1.0,
-      strokeWeight: 2,
-      map: map,
-    });
-  }
-} catch (e) {
-  console.warn("Erreur lors du tracé de l’azimut :", e);
-}
+                try {
+                  if (!address || address.trim() === "") continue;
+                  const location = await geocodeWithCache(geocoder, address);
+                  const finalPosition = new google.maps.LatLng(location.lat, location.lng);
 
-                    const marker = new google.maps.Marker({
+                  // Create main marker
+                  const marker = new google.maps.Marker({
+                    position: finalPosition,
+                    map: map,
+                    title: `${name} ${espece} \n${jourdispo}\n${info} ${Emoj} ${Emoj2}`,
+                    icon: icon,
+                    zIndex: 10
+                  });
+                  marker.customData = {
+                    cityName: cityName.toLowerCase(),
+                    name: name.toLowerCase(),
+                    espece: espece.toLowerCase()
+                  };
+                  marker.customIndex = markers.length; // Assign an index for debug
+                  marker.addListener("click", () => {
+                    infoWindow.setContent(`<div style="font-size:20px; font-weight:bold; color:#333;">${repondu} (${espece}) <br>${Numero}<br>${info}<br>${Emoj} ${Emoj2}</div>`);
+                    infoWindow.open(map, marker);
+                  });
+                  markers.push(marker);
+
+                  // If status is "intervention", add an intervention marker
+                  if (status && status.trim().toLowerCase() === "intervention") {
+                    const interventionMarker = new google.maps.Marker({
                       position: finalPosition,
                       map: map,
-                      title: `${name} ${espece} \n${jourdispo}\n${info} ${Emoj} ${Emoj2}`,
-                      icon: icon,
-                      zIndex: 10 
+                      icon: { url: createInterventionSVG(markerColor) },
+                      zIndex: 1
                     });
-                    
-          
-if (csvUrl === csvURL1 && status.trim().toLowerCase() === "intervention") {
-  console.log("Création du marqueur d'intervention");
-  const interventionOffset = {
-    lat: 0.0000,
-    lng: 0.0000
-  };
-  const interventionMarker = new google.maps.Marker({
-    position: {
-      lat: finalPosition.lat() + interventionOffset.lat,
-      lng: finalPosition.lng() + interventionOffset.lng
-    },
-    map: map,
-    icon: {      url: createInterventionSVG(markerColor)}, 
-    zIndex: 1     
-  });
-  markers.push(interventionMarker);
-}
-
-                    marker.customData = {
-                      cityName: cityName.toLowerCase(),
-                      name: name.toLowerCase(),
-                      espece: espece.toLowerCase()
-                    };
-                    marker.customIndex = markerCount;
-                    marker.addListener("click", () => {
-                      infoWindow.setContent(`<div style="font-size:20px; font-weight:bold; color:#333;">${repondu} (${espece}) <br>${Numero}<br>${info}<br>${Emoj} ${Emoj2}</div>`);
-                      infoWindow.open(map, marker);
-                      
-                    });
-                    markers.push(marker);
-                    let debugLine = "";
-                    if (csvUrl === csvURL1) {
-                      debugLine = `${repondu} ---> ${espece} | info : ${info}  | lieu découverte : ${cityName}  | appel : ${seil}`;
-                    } 
-                    debugInfoHTML += `<div id="debug-line-${markerCount}" data-index="${markerCount}">${debugLine}</div>\n`;
-                    markerCount++;
-                  } catch (geocodeStatus) {
-                    console.error(`Erreur de géocodage pour ${address}: ${geocodeStatus}`);
+                    markers.push(interventionMarker);
                   }
+
+                  // Process azimuts with Turf.js
+                  const azimutAngle = parseFloat(azimut);
+                  if (!isNaN(azimutAngle) && parsedDate) { // Ensure parsedDate is valid
+                    const AZIMUT_LINE_LENGTH_KM = 22; // Can be adjusted if azimuts are very far apart
+
+                    const turfStartPoint = [finalPosition.lng(), finalPosition.lat()];
+                    const turfEndPoint = getTurfPointAtDistanceAndBearing(finalPosition, azimutAngle, AZIMUT_LINE_LENGTH_KM);
+
+                    let azimutLineColor = markerColor; // Default to individual color
+                    if (selectedNumero && !selectedDay) { // If an individual is selected but no specific day is filtered
+                        azimutLineColor = getColorFromHashString(parsedDate.toDateString()); // Color by day
+                    } else if (selectedNumero && selectedDay) { // If both individual and specific day are selected
+                        azimutLineColor = getColorFromHashString(selectedDay); // All azimuts for this day (of this individual) have the same color
+                    }
+                    // If no individual is selected (selectedNumero is ""), default markerColor for azimuth is used, which is based on Numero.
+
+                    const azimutLine = new google.maps.Polyline({
+                      path: [finalPosition, new google.maps.LatLng(turfEndPoint[1], turfEndPoint[0])],
+                      geodesic: false,
+                      strokeColor: azimutLineColor, // Use the appropriate color
+                      strokeOpacity: 0.8,
+                      strokeWeight: 2,
+                      map: map,
+                    });
+                    azimutLines.push(azimutLine);
+
+                    // Store azimut data for each individual, including the parsed Date object and a unique row index
+                    if (!azimutDataByNumero.has(Numero)) {
+                      azimutDataByNumero.set(Numero, []);
+                    }
+                    azimutDataByNumero.get(Numero).push({
+                      turfStart: turfStartPoint,
+                      turfEnd: turfEndPoint,
+                      dateHeure: seil,     // Keep original string
+                      parsedDate: parsedDate, // Store parsed Date object
+                      info: info,
+                      originalRowIndex: i // Store original row index for unique identification of this azimut line
+                    });
+                  }
+
+                  debugInfoHTML += `<div id="debug-line-${markers.length - 1}" data-index="${markers.length - 1}">${repondu} ---> ${espece} | info : ${info} | lieu Détection : ${cityName} | appel : ${seil} </div>\n`;
+
+                } catch (geocodeStatus) {
+                  console.error(`Geocoding error for ${address}: ${geocodeStatus}`);
                 }
               }
             }
+
+            // --- Calculation and Filtering of Azimuth Intersections ---
+            const rawIntersections = []; // Temporary array to hold all potential intersections
+
+            azimutDataByNumero.forEach((points, numero) => {
+              if (points.length < 2) return;
+
+              for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                  const pA = points[i]; // Azimuth object A
+                  const pB = points[j]; // Azimuth object B
+
+                  // Use parsedDate for robust comparison
+                  const dateA = pA.parsedDate;
+                  const dateB = pB.parsedDate;
+
+                  // **IMPORTANT: Check that azimuts are from the same day**
+                  if (!dateA || !dateB || dateA.toDateString() !== dateB.toDateString()) {
+                      continue;
+                  }
+
+                  const line1 = turf.lineString([pA.turfStart, pA.turfEnd]);
+                  const line2 = turf.lineString([pB.turfStart, pB.turfEnd]);
+// 1. Définir l'écart de temps maximum en minutes
+const maxTimeDiffMinutes = 10; // Mettre 5 ou 10 selon votre besoin
+
+// 2. Calculer la différence de temps absolue en minutes entre les deux points
+const timeDiffMs = Math.abs(dateA.getTime() - dateB.getTime());
+const timeDiffMinutes = timeDiffMs / (1000 * 60); // Conversion des millisecondes en minutes
+
+// 3. Si l'écart est supérieur au maximum, on ignore cette paire d'azimuts
+if (timeDiffMinutes > maxTimeDiffMinutes) {
+    continue; // Passe à la paire suivante
+}
+
+                  const intersects = turf.lineIntersect(line1, line2);
+
+                  if (intersects.features.length > 0) {
+                    const intersectionPoint = intersects.features[0].geometry.coordinates;
+                    const intersectionLatLng = new google.maps.LatLng(intersectionPoint[1], intersectionPoint[0]);
+
+                    // Use the earliest date of the two azimuts for the intersection's timestamp
+                    const crossDate = new Date(Math.min(dateA.getTime(), dateB.getTime()));
+
+                    // Calculate time differences for filtering: absolute difference between azimut's date and intersection date
+                    const timeDiffFromPA = Math.abs(dateA.getTime() - crossDate.getTime());
+                    const timeDiffFromPB = Math.abs(dateB.getTime() - crossDate.getTime());
+
+                    rawIntersections.push({
+                      latLng: intersectionLatLng,
+                      numero: numero,
+                      pA: pA, // Keep original azimut object A (with parsedDate, originalRowIndex)
+                      pB: pB, // Keep original azimut object B (with parsedDate, originalRowIndex)
+                      crossDate: crossDate,
+                      crossTimeInMinutes: (crossDate.getHours() * 60 + crossDate.getMinutes()), // For info window display
+                      timeDiffFromPA: timeDiffFromPA,
+                      timeDiffFromPB: timeDiffFromPB,
+                    });
+                  }
+                }
+              }
+              
+            });
+
+            // Filtering logic: Select only one marker per azimut line (the one closest in time for that line)
+            // Key: azimutID (e.g., "numero_originalRowIndex"), Value: {intersection, minTimeDiff}
+            const azimutLineToChosenIntersection = new Map();
+
+            rawIntersections.forEach(inter => {
+                // Create truly unique IDs for the contributing azimut lines (pA and pB)
+                // This ensures that even if 'seil' (timestamp string) is identical for different lines,
+                // the originalRowIndex makes it unique.
+                const azimutA_ID = `${inter.numero}_azimut_${inter.pA.originalRowIndex}`;
+                const azimutB_ID = `${inter.numero}_azimut_${inter.pB.originalRowIndex}`;
+
+                // Check if this intersection is the closest in time for azimut A
+                if (!azimutLineToChosenIntersection.has(azimutA_ID) || inter.timeDiffFromPA < azimutLineToChosenIntersection.get(azimutA_ID).minTimeDiff) {
+                    azimutLineToChosenIntersection.set(azimutA_ID, { intersection: inter, minTimeDiff: inter.timeDiffFromPA });
+                }
+
+                // Check if this intersection is the closest in time for azimut B
+                // An intersection can be the best for both contributing azimuts.
+                if (!azimutLineToChosenIntersection.has(azimutB_ID) || inter.timeDiffFromPB < azimutLineToChosenIntersection.get(azimutB_ID).minTimeDiff) {
+                    azimutLineToChosenIntersection.set(azimutB_ID, { intersection: inter, minTimeDiff: inter.timeDiffFromPB });
+                }
+            });
+
+            // Extract unique intersection objects that were chosen as "best" for at least one azimut line
+            const finalIntersectionsSet = new Set();
+            azimutLineToChosenIntersection.forEach(entry => {
+                finalIntersectionsSet.add(entry.intersection);
+            });
+            const finalIntersections = Array.from(finalIntersectionsSet);
+
+
+            // Sort these final intersections chronologically for the gradient
+            finalIntersections.sort((a, b) => {
+                if (a.crossDate && b.crossDate) {
+                    return a.crossDate.getTime() - b.crossDate.getTime();
+                }
+                return 0; // Maintain stable order if dates are invalid or equal
+            });
+
+            // Functions for color interpolation
+            function interpolateColor(color1, color2, factor) {
+                const result = color1.slice();
+                for (let i = 0; i < 3; i++) {
+                    result[i] = Math.round(color1[i] + factor * (color2[i] - color1[i]));
+                }
+                return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
+            }
+
+            function hexToRgb(hex) {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return [r, g, b];
+            }
+
+            // --- Define NEW colors for the chronological gradient ---
+            // Color for the first two (oldest) intersections
+            const firstTwoColor = [255, 255, 150]; // Very pale yellow (RGB)
+
+            // Gradient colors for subsequent intersections (from light to dark)
+            const gradientStartColor = hexToRgb("#ADD8E6"); // Light Blue
+            const gradientEndColor = hexToRgb("#8B0000");   // Dark Red
+
+            // Create intersection markers with the improved chronological gradient
+            finalIntersections.forEach((intersection, index) => {
+              let interpolatedColor;
+
+              if (index < 2) {
+                  // The two oldest intersections get a very light color
+                  interpolatedColor = `rgb(${firstTwoColor[0]}, ${firstTwoColor[1]}, ${firstTwoColor[2]})`;
+              } else {
+                  // Subsequent intersections get a gradient from light blue to dark red
+                  const startIndexForGradient = 2;
+                  const numGradientPoints = finalIntersections.length - startIndexForGradient; // Number of intersections in the gradient part
+
+                  if (numGradientPoints > 0) {
+                      // Calculate factor based on position within the gradient slice
+                      const factor = (numGradientPoints === 1) ? 0 : (index - startIndexForGradient) / (numGradientPoints - 1);
+                      interpolatedColor = interpolateColor(gradientStartColor, gradientEndColor, factor);
+                  } else {
+                      // Fallback if somehow there are no gradient points (e.g., only 0 or 1 total intersection)
+                      interpolatedColor = `rgb(${gradientStartColor[0]}, ${gradientStartColor[1]}, ${gradientStartColor[2]})`;
+                  }
+              }
+
+              const intersectionMarker = new google.maps.Marker({
+                position: intersection.latLng,
+                map: map,
+                icon: {
+                  path: google.maps.SymbolPath.CIRCLE,
+                  fillColor: interpolatedColor, // Color based on chronological order
+                  fillOpacity: 0.9,
+                  strokeColor: "#000",
+                  strokeWeight: 1,
+                  scale: 8,
+                },
+                title: `Croisement pour Individu ${intersection.numero}\n` +
+                       `Date: ${intersection.crossDate ? intersection.crossDate.toLocaleDateString() : 'N/A'}\n` +
+                       `Heure 1: ${intersection.pA.dateHeure || 'N/A'}\n` +
+                       `Heure 2: ${intersection.pB.dateHeure || 'N/A'}\n` +
+                       `Info 1: ${intersection.pA.info || 'Aucune'}\n` +
+                       `Info 2: ${intersection.pB.info || 'Aucune'}`
+              });
+              intersectionMarker.addListener("click", () => {
+  let infoWindowContent = `
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+        <h3 style="margin-top: 0; margin-bottom: 8px; color: #0056b3;">Intersection pour Individu ${intersection.numero}</h3>
+        <p style="margin-bottom: 4px;">
+            <strong>Point 1:</strong>
+            <br> Heure: ${intersection.pA.dateHeure || 'N/A'}
+            <br> Info: ${intersection.pA.info || 'Aucune'}
+        </p>
+        <p style="margin-bottom: 0;">
+            <strong>Point 2:</strong>
+            <br> Heure: ${intersection.pB.dateHeure || 'N/A'}
+            <br> Info: ${intersection.pB.info || 'Aucune'}
+        </p>
+        ${finalIntersections ? `<p style="margin-top: 8px;">Date de croisement (la plus ancienne): ${intersection.crossDate.toLocaleDateString()}</p>` : ''}
+        ${intersection.crossTimeInMinutes !== -1 ? `<p style="margin-top: 4px;">Heure du croisement: ${Math.floor(intersection.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(intersection.crossTimeInMinutes % 60).toString().padStart(2, '0')}</p>` : ''}
+        <p style="margin-top: 4px;"><strong>Coordonnées GPS :</strong> ${intersection.latLng.lat().toFixed(6)}, ${intersection.latLng.lng().toFixed(6)}</p>
+        <p style="margin-top: 4px; font-style: italic; color: #666;">
+            Ceci représente un point de croisement possible.
+        </p>
+    </div>
+  `;
+  infoWindow.setContent(infoWindowContent);
+  infoWindow.open(map, intersectionMarker);
+});
+  intersectionMarkers.push(intersectionMarker);
+            });
             document.getElementById('debug-info').innerHTML = debugInfoHTML;
           }
         });
       } catch (error) {
-        console.error('Erreur:', error);
-        document.getElementById('error-message').textContent = "Erreur lors de la récupération des données. Vérifiez la console.";
+        console.error('Global error during data retrieval or processing:', error);
+        document.getElementById('error-message').textContent = "Error retrieving data. Check the console.";
       }
     }
 
-    // Fonction de recherche dans les marqueurs
+    // Search markers function
     function searchMarkers() {
       const searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
       if (!searchTerm) return;
       if (searchTerm !== lastSearchTerm) {
         searchResults = markers.filter(marker => {
           return marker.customData.cityName.includes(searchTerm) ||
-                 marker.customData.name.includes(searchTerm) ||
-                 marker.customData.espece.includes(searchTerm);
+            marker.customData.name.includes(searchTerm) ||
+            marker.customData.espece.includes(searchTerm);
         });
         currentSearchIndex = 0;
         lastSearchTerm = searchTerm;
       }
       if (searchResults.length === 0) {
-        alert("Aucun marqueur correspondant n'a été trouvé.");
+        alert("No matching markers found.");
         return;
       }
       const markerFound = searchResults[currentSearchIndex % searchResults.length];
@@ -480,75 +753,182 @@ if (csvUrl === csvURL1 && status.trim().toLowerCase() === "intervention") {
         debugLine.classList.add("highlight");
       }
     }
-// Rechercher ville/adresse 
-async function manualSearch() {
-  const input = document.getElementById("manualSearchInput");
-  const query = input.value.trim();
 
-  if (!query) return alert("Veuillez saisir une ville ou une adresse");
+    // Manual city/address search
+    async function manualSearch() {
+      const input = document.getElementById("manualSearchInput");
+      const query = input.value.trim();
 
-  const geocoder = new google.maps.Geocoder();
+      if (!query) return alert("Please enter a city or address");
 
-  try {
-    const location = await geocodeWithCache(geocoder, query);
-    const latLng = new google.maps.LatLng(location.lat, location.lng);
+      const geocoder = new google.maps.Geocoder();
 
-    // Centre la carte
-    map.setCenter(latLng);
-    map.setZoom(12);
+      try {
+        const location = await geocodeWithCache(geocoder, query);
+        const latLng = new google.maps.LatLng(location.lat, location.lng);
 
-    // marqueur temporaire
-    const marker = new google.maps.Marker({
-      position: latLng,
-      map: map,
-      title: query,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        fillColor: '#FF0000',
-        fillOpacity: 0.8,
-        strokeColor: '#000',
-        strokeWeight: 2,
-        scale: 10
+        map.setCenter(latLng);
+        map.setZoom(12);
+
+        const marker = new google.maps.Marker({
+          position: latLng,
+          map: map,
+          title: query,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: '#FF0000',
+            fillOpacity: 0.8,
+            strokeColor: '#000',
+            strokeWeight: 2,
+            scale: 10
+          }
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<b>${query}</b>`
+        });
+        marker.addListener("click", () => infoWindow.open(map, marker));
+        infoWindow.open(map, marker);
+      } catch (err) {
+        alert("Address not found: " + err);
+      }
+    }
+
+    // Generate a color from a number (for individual markers)
+    function getColorFromNumero(numero) {
+      const hash = String(numero).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const r = (hash * 115) % 256;
+      const g = (hash * 114) % 256;
+      const b = (hash * 113) % 256;
+      return `rgb(${r},${g},${b})`;
+    }
+
+    // Toggle debug info display
+    document.getElementById("toggle-debug").addEventListener("click", function () {
+      const debugInfo = document.getElementById("debug-info");
+      const arrow = document.getElementById("arrow");
+      const button = document.getElementById("toggle-debug");
+
+      if (debugInfo.style.display === "none") {
+        debugInfo.style.display = "block";
+        arrow.style.transform = "rotate(90deg)";
+        button.innerHTML = '<span id="arrow" style="transform: rotate(90deg);">▶</span> masquer infos';
+      } else {
+        debugInfo.style.display = "none";
+        arrow.style.transform = "rotate(0deg)";
+        button.innerHTML = '<span id="arrow">▶</span> afficher infos';
       }
     });
 
-    // Popup
-    const infoWindow = new google.maps.InfoWindow({
-      content: `<b>${query}</b>`
-    });
-    marker.addListener("click", () => infoWindow.open(map, marker));
-    infoWindow.open(map, marker);
-  } catch (err) {
-    alert("Adresse introuvable : " + err);
-  }
-}
+    // Event listeners for search buttons and "Enter" key
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById("search-button").addEventListener("click", searchMarkers);
+      document.getElementById("search-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          searchMarkers();
+        }
+      });
+document.getElementById('download-intersections-csv').addEventListener('click', () => {
+  const selectedDateStr = document.getElementById('filter-date').value;
 
-    // couleur à partir d'un numéro
-    function getColorFromNumero(numero) {
-      const hash = Array.from(numero).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const r = (hash * 115) % 256;
-      const g = (hash * 1114) % 256;
-      const b = (hash * 1111) % 256;
-      return `rgb(${r},${g},${b})`;
-    }
-    document.getElementById("toggle-debug").addEventListener("click", function () {
-  const debugInfo = document.getElementById("debug-info");
-  const arrow = document.getElementById("arrow");
-  const button = document.getElementById("toggle-debug");
-
-  if (debugInfo.style.display === "none") {
-    debugInfo.style.display = "block";
-    arrow.style.transform = "rotate(90deg)";
-    button.classList.add("open");
-    button.innerHTML = '<span id="arrow" style="transform: rotate(90deg);">▶</span> Masquer les infos';
-  } else {
-    debugInfo.style.display = "none";
-    arrow.style.transform = "rotate(0deg)";
-    button.classList.remove("open");
-    button.innerHTML = '<span id="arrow">▶</span> Afficher les infos';
+  if (!selectedDateStr) {
+    alert('Veuillez sélectionner une date avant de télécharger.');
+    return;
   }
+
+  const selectedDate = new Date(selectedDateStr);
+
+ 
+  const csvHeader = [
+    'Numero',
+    'DateCroisement',
+    'HeureCroisement',
+    'Latitude',
+    'Longitude',
+
+    'Equipe1',
+    'Num1',
+    'Position1',
+    'Azimut1',
+    'Heure1',
+    'Info1',
+
+    'Equipe2',
+    'Num2',
+    'Position2',
+    'Azimut2',
+    'Heure2',
+    'Info2'
+  ];
+
+  const csvRows = filteredIntersections.map(inter => {
+    const pA = inter.pA;
+    const pB = inter.pB;
+
+    return [
+      inter.numero,
+      inter.crossDate?.toLocaleDateString() || '',
+      inter.crossTimeInMinutes !== -1
+        ? `${Math.floor(inter.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(inter.crossTimeInMinutes % 60).toString().padStart(2, '0')}`
+        : '',
+      inter.latLng.lat().toFixed(6),
+      inter.latLng.lng().toFixed(6),
+
+      pA.equipe || '',
+      inter.numero || '',
+      pA.position || '',
+      pA.azimut || '',
+      pA.dateHeure || '',
+      pA.info || '',
+
+      pB.equipe || '',
+      inter.numero || '',
+      pB.position || '',
+      pB.azimut || '',
+      pB.dateHeure || '',
+      pB.info || ''
+    ].join(',');
+  });
+
+  const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `intersections_${selectedDateStr}.csv`);
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 });
 
+      // Add manual address search input if not already present
+      const searchContainer = document.getElementById("search-container");
+      const debugContainer = document.getElementById("debug-container"); // Reference to debug button container
+
+      if (!document.getElementById("manualSearchInput")) {
+          const manualSearchInput = document.createElement("input");
+          manualSearchInput.type = "text";
+          manualSearchInput.id = "manualSearchInput";
+          manualSearchInput.placeholder = "Search city/address manually";
+          // Insert before debugContainer, which is a direct child of searchContainer
+          searchContainer.insertBefore(manualSearchInput, debugContainer);
+
+          const manualSearchButton = document.createElement("button");
+          manualSearchButton.id = "manualSearchButton";
+          manualSearchButton.textContent = "Go!";
+          // Insert before debugContainer
+          searchContainer.insertBefore(manualSearchButton, debugContainer);
+
+          manualSearchButton.addEventListener("click", manualSearch);
+          manualSearchInput.addEventListener("keydown", function(e) {
+              if (e.key === "Enter") {
+                  manualSearch();
+              }
+          });
+      }
+    });
   </script>
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfGs1gnWhKjQvgeebgoMtptzwjMwBKwh0&libraries=places,marker&callback=initMap" async defer></script>
