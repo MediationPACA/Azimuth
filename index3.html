@@ -1,261 +1,127 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <title>Time‐lapse Azimuts</title>
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
-  <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Azimuts Chiroptères</title>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <style>
-    #map { width:100%; height:80vh }
-    #controls { padding:10px }
+    body { font-family: Arial; background-color: #bfecbb; text-align: center; }
+    #map { height: 500px; width: 100%; }
+    select, button { margin: 10px; padding: 5px 10px; font-size: 16px; }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <input type="file" id="csvFile" accept=".csv" />
-    <select id="numeroSelect">
-      <option value="">Tous les individus</option>
-    </select>
-  </div>
+  <h1>Azimuts Chiroptères</h1>
+  
+  <label for="jourSelect">Choisir un jour :</label>
+  <select id="jourSelect">
+    <option value="">Tous les jours</option>
+  </select>
+
+  <button id="download-intersections-csv">Télécharger les intersections en CSV</button>
+
   <div id="map"></div>
 
   <script>
-    let map;
-    let azimutDataByNumero = new Map();
-    let polylines          = [];
-    let markers            = [];
-    let intersectionMarkers= [];
-    let currentIntersectionIndex = 0;
+    let selectedDay = "";
+    let selectedNumero = "";
+    let finalIntersections = [];
 
-    function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 46.5, lng: 2.5 },
-        zoom: 6
-      });
+    // Exemple factice pour test sans CSV
+    finalIntersections = [
+      {
+        numero: "123",
+        crossDate: new Date("2024-07-15T08:30:00"),
+        crossTimeInMinutes: 510,
+        latLng: {
+          lat: () => 48.8566,
+          lng: () => 2.3522
+        },
+        pA: { info: "Azimut A", dateHeure: "08:15" },
+        pB: { info: "Azimut B", dateHeure: "08:45" }
+      }
+    ];
+
+    function datesAreSameDay(d1, d2) {
+      return d1 instanceof Date && d2 instanceof Date &&
+             d1.getFullYear() === d2.getFullYear() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getDate() === d2.getDate();
     }
 
-    window.onload = () => {
-      initMap();
+    // Init jours dans le select
+    document.addEventListener("DOMContentLoaded", () => {
+      const jourSelect = document.getElementById("jourSelect");
+      const dates = [...new Set(finalIntersections.map(i => i.crossDate.toDateString()))];
+      dates.sort((a, b) => new Date(a) - new Date(b));
 
-      document.getElementById('csvFile')
-        .addEventListener('change', e => {
-          const file = e.target.files[0];
-          if (!file) return;
-          Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: res => updateData(res.data)
-          });
-        });
-
-      document.getElementById('numeroSelect')
-        .addEventListener('change', () => updateData());
-    };
-
-    let lastData = [];
-    function updateData(csvRows) {
-      if (csvRows) lastData = csvRows;
-      const data = lastData;
-
-      // Reset
-      azimutDataByNumero.clear();
-      polylines.forEach(p=>p.setMap(null));  polylines = [];
-      markers.forEach(m=>m.setMap(null));     markers   = [];
-      intersectionMarkers.forEach(m=>m.setMap(null));
-      intersectionMarkers = [];
-      currentIntersectionIndex = 0;
-
-      // Parse & group by Numero, add time field
-      data.forEach(row => {
-        const Numero = row.Numero || row.numero;
-        const lat    = parseFloat(row.Latitude  || row.latitude);
-        const lng    = parseFloat(row.Longitude || row.longitude);
-        const az     = parseFloat((row.Azimut   || row.azimut || '').replace(',','.'));
-        const time   = new Date(row.Horodateur || row.row0);
-
-        if (Numero && !isNaN(lat) && !isNaN(lng) && !isNaN(az) && !isNaN(time)) {
-          if (!azimutDataByNumero.has(Numero)) {
-            azimutDataByNumero.set(Numero, []);
-          }
-          azimutDataByNumero.get(Numero)
-            .push({ lat, lng, azimut: az, time });
-        }
+      dates.forEach(dateStr => {
+        const option = document.createElement("option");
+        option.value = dateStr;
+        option.textContent = new Date(dateStr).toLocaleDateString("fr-FR");
+        jourSelect.appendChild(option);
       });
 
-      // Sort each series by timestamp
-      azimutDataByNumero.forEach(arr => {
-        arr.sort((a,b)=>a.time - b.time);
+      jourSelect.addEventListener("change", function() {
+        selectedDay = this.value;
       });
+    });
 
-      // Populate selector once
-      const select = document.getElementById('numeroSelect');
-      if (select.options.length <= 1) {
-        select.innerHTML = '<option value="">Tous les individus</option>';
-        Array.from(azimutDataByNumero.keys())
-          .sort()
-          .forEach(num => {
-            select.innerHTML += `<option value="${num}">${num}</option>`;
-          });
+    // Fonction de téléchargement CSV
+    document.getElementById('download-intersections-csv').addEventListener('click', function () {
+      if (!selectedDay) {
+        alert("Veuillez sélectionner une date pour filtrer les intersections.");
+        return;
       }
 
-      // Animate
-      const sel = select.value;
-      if (sel) {
-        animateSerie(sel);
-      } else {
-        // parallel animations for each? better to queue or run one by one
-        Array.from(azimutDataByNumero.keys())
-          .forEach(num => animateSerie(num));
+      const selectedDate = new Date(selectedDay);
+
+      const filtered = finalIntersections.filter(inter =>
+        inter.crossDate && datesAreSameDay(inter.crossDate, selectedDate)
+      );
+
+      if (filtered.length === 0) {
+        alert("Aucun point d'intersection pour ce jour.");
+        return;
       }
-    }
 
-    function animateSerie(numero) {
-      const pts = azimutDataByNumero.get(numero);
-      if (!pts || pts.length < 2) return;
+      const headers = [
+        'Individu', 'Date_Croisement', 'Heure_Croisement', 'Latitude', 'Longitude',
+        'Info_Point_1', 'Heure_Point_1',
+        'Info_Point_2', 'Heure_Point_2'
+      ];
 
-      let idx = 0;
-      const interval = setInterval(() => {
-        const p = pts[idx];
+      const rows = filtered.map(inter => {
+        const crossTime = inter.crossTimeInMinutes !== -1
+          ? `${Math.floor(inter.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(inter.crossTimeInMinutes % 60).toString().padStart(2, '0')}`
+          : 'N/A';
 
-        // 1) Marker
-        const m = new google.maps.Marker({
-          position: {lat: p.lat, lng: p.lng},
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 6,
-            fillColor: '#FF0000',
-            fillOpacity: 0.9,
-            strokeWeight: 1
-          },
-          map
-        });
-        markers.push(m);
+        return [
+          inter.numero,
+          inter.crossDate.toLocaleDateString('fr-FR'),
+          crossTime,
+          inter.latLng.lat().toFixed(6),
+          inter.latLng.lng().toFixed(6),
+          `"${inter.pA.info || 'Aucune'}"`,
+          `"${inter.pA.dateHeure || 'N/A'}"`,
+          `"${inter.pB.info || 'Aucune'}"`,
+          `"${inter.pB.dateHeure || 'N/A'}"`
+        ].join(',');
+      });
 
-        // 2) Trajectory segment
-        if (idx > 0) {
-          const prev = pts[idx-1];
-          const line = new google.maps.Polyline({
-            path: [
-              {lat: prev.lat, lng: prev.lng},
-              {lat: p.lat,   lng: p.lng}
-            ],
-            strokeColor: '#FF0000',
-            strokeOpacity: 0.7,
-            strokeWeight: 2,
-            map
-          });
-          polylines.push(line);
-        }
+      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
 
-        // 3) Azimut line (~1 km)
-        const L = 0.01; // ≃1 km
-        const θ = (90 - p.azimut) * Math.PI/180;
-        const dest = {
-          lat: p.lat + L * Math.sin(θ),
-          lng: p.lng + L * Math.cos(θ)
-        };
-        new google.maps.Polyline({
-          path: [
-            {lat: p.lat, lng: p.lng},
-            dest
-          ],
-          strokeColor: '#0000FF',
-          strokeOpacity: 0.8,
-          strokeWeight: 1.5,
-          map
-        });
+      const filename = `intersections_individu_${selectedNumero || 'tous'}_${selectedDay.replace(/\//g, '-')}.csv`;
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", filename);
 
-        // 4) Intersections with all previous azimuts
-        for (let j = 0; j < idx; j++) {
-          const q = pts[j];
-          const inter = intersectionOfAzimuts(q, q.azimut, p, p.azimut);
-          if (inter) {
-            const im = new google.maps.Marker({
-              position: inter,
-              map: null,
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 4,
-                fillColor: '#00FF00',
-                fillOpacity: 0.8,
-                strokeWeight: 1
-              }
-            });
-            intersectionMarkers.push(im);
-          }
-        }
-
-        idx++;
-        if (idx >= pts.length) {
-          clearInterval(interval);
-          showIntersections();
-        }
-      }, 1000);
-    }
-
-    function showIntersections() {
-      if (intersectionMarkers.length === 0) return;
-      currentIntersectionIndex = 0;
-      const t = setInterval(() => {
-        if (currentIntersectionIndex < intersectionMarkers.length) {
-          intersectionMarkers[currentIntersectionIndex].setMap(map);
-          currentIntersectionIndex++;
-        } else {
-          clearInterval(t);
-        }
-      }, 500);
-    }
-
-    // Computes intersection point of two azimuts:
-    // p1, azi1 and p2, azi2. Returns {lat,lng} or null.
-    function intersectionOfAzimuts(p1, azi1, p2, azi2) {
-      // Convert all to radians
-      const toRad = d => d * Math.PI/180;
-      const toDeg = r => r * 180/Math.PI;
-      const φ1 = toRad(p1.lat), λ1 = toRad(p1.lng);
-      const φ2 = toRad(p2.lat), λ2 = toRad(p2.lng);
-      const α1 = toRad(azi1), α2 = toRad(azi2);
-
-      const Δφ = φ2 - φ1;
-      const Δλ = λ2 - λ1;
-      const δ12 = 2 * Math.asin(Math.sqrt(
-        Math.sin(Δφ/2)**2 +
-        Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2
-      ));
-      if (δ12 === 0) return null;
-
-      // Initial/final bearings between points
-      const θa = Math.acos(
-        (Math.sin(φ2) - Math.sin(φ1)*Math.cos(δ12)) /
-        (Math.sin(δ12)*Math.cos(φ1))
-      );
-      const θb = Math.acos(
-        (Math.sin(φ1) - Math.sin(φ2)*Math.cos(δ12)) /
-        (Math.sin(δ12)*Math.cos(φ2))
-      );
-
-      let θ12 = Math.sin(λ2-λ1) > 0 ? θa : 2*Math.PI - θa;
-      let θ21 = Math.sin(λ2-λ1) > 0 ? 2*Math.PI - θb : θb;
-
-      const α3 = (α1 - θ12 + Math.PI) % (2*Math.PI) - Math.PI;
-      const α4 = (θ21 - α2 + Math.PI) % (2*Math.PI) - Math.PI;
-      if (Math.sin(α3)*Math.sin(α4) >= 0) return null;
-
-      // Angular distance from p1 to intersection
-      const cosδ13 = Math.cos(δ12)*Math.sin(α4)/Math.sin(α3);
-      const δ13 = Math.acos(cosδ13);
-      const φ3 = Math.asin(
-        Math.sin(φ1)*Math.cos(δ13) +
-        Math.cos(φ1)*Math.sin(δ13)*Math.cos(α1)
-      );
-      const Δλ13 = Math.atan2(
-        Math.sin(α1)*Math.sin(δ13)*Math.cos(φ1),
-        Math.cos(δ13) - Math.sin(φ1)*Math.sin(φ3)
-      );
-      const λ3 = λ1 + Δλ13;
-
-      return { lat: toDeg(φ3), lng: toDeg(λ3) };
-    }
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
   </script>
 </body>
 </html>
