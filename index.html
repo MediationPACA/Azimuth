@@ -124,8 +124,8 @@
   <script>
     let map;
     let markers = [];
-    let azimutLines = []; // To store azimuth polylines
-    let intersectionMarkers = []; // To store intersection markers
+    let azimutLines = [];
+    let intersectionMarkers = []; 
     const GEOCODING_CACHE_KEY = 'geocodingCache';
     const GEOCODING_DELAY = 5;
     let infoWindow;
@@ -133,8 +133,7 @@
     let currentSearchIndex = 0;
     let lastSearchTerm = "";
     let selectedNumero = "";
-    let selectedDay = ""; // New global variable for selected day
-    // CSV URL
+    let selectedDay = ""; 
     const csvURL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdtWB4ADQE67hvusnI_cml3eJqe13MN3rbsbBY2DEGXj6ZTjtkGY7WAXs6KyC-5PLiHuOwmJQsfx38/pub?gid=1940485869&single=true&output=csv';
     let currentCSV = csvURL1;
 
@@ -301,8 +300,8 @@ const filtered = source.filter(inter =>
           crossTime,
           inter.latLng.lat().toFixed(6),
           inter.latLng.lng().toFixed(6),
-          `"${inter.pA.info || 'Aucune'}"`,
-          `"${inter.pA.dateHeure || 'N/A'}"`,
+          `"Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
+          `"Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
           `"${inter.pB.info || 'Aucune'}"`,
           `"${inter.pB.dateHeure || 'N/A'}"`
         ].join(',');
@@ -513,14 +512,17 @@ if (selectedDay && parsedDate && !datesAreSameDay(parsedDate, new Date(selectedD
                     if (!azimutDataByNumero.has(Numero)) {
                       azimutDataByNumero.set(Numero, []);
                     }
-                    azimutDataByNumero.get(Numero).push({
-                      turfStart: turfStartPoint,
-                      turfEnd: turfEndPoint,
-                      dateHeure: seil,     // Keep original string
-                      parsedDate: parsedDate, // Store parsed Date object
-                      info: info,
-                      originalRowIndex: i // Store original row index for unique identification of this azimut line
-                    });
+                   azimutDataByNumero.get(Numero).push({
+  turfStart: turfStartPoint,
+  turfEnd: turfEndPoint,
+  dateHeure: seil,
+  parsedDate: parsedDate,
+  info: info,
+  originalRowIndex: i,
+  azimut: azimut,                      // ➕ on ajoute l'azimut
+  position: cityName || address || '' // ➕ on ajoute la localisation
+});
+
                   }
 
                   debugInfoHTML += `<div id="debug-line-${markers.length - 1}" data-index="${markers.length - 1}">${repondu} ---> ${espece} | info : ${info} | lieu Détection : ${cityName} | appel : ${seil} </div>\n`;
@@ -738,9 +740,9 @@ finalIntersections = Array.from(finalIntersectionsSet);
     debugInfoHTML += `
       <div style="font-size: 14px; color: #333;">
         ➤ <strong>Individu ${inter.numero}</strong> - ${inter.crossDate?.toLocaleDateString('fr-FR') || 'Date ?'} à ${heure}<br>
-        ↳ <em>${inter.pA.info || 'Info1 inconnue'} (${inter.pA.dateHeure || '?'})</em><br>
-        ↳ <em>${inter.pB.info || 'Info2 inconnue'} (${inter.pB.dateHeure || '?'})</em><br>
-        📍 <strong>Coordonnées :</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}<br><br>
+      ↳ <em>Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'} (${inter.pA.dateHeure || '?'})</em><br>
+↳ <em>Lieu: ${inter.pB.position || '—'} | Azimut: ${inter.pB.azimut || '—'} (${inter.pB.dateHeure || '?'})</em><br>
+📍 <strong>Coordonnées :</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}<br><br>
       </div>
     `;
   });
