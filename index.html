@@ -106,6 +106,8 @@
     <option value="4">4 min</option>
     <option value="5">5 min</option>
   </select>
+  <button id="toggle-azimuts" style="margin-top: 10px;">Masquer les azimuts</button>
+
 </div>
 
   </div>
@@ -152,6 +154,17 @@
       selectedNumero = this.value;
       updateData(currentCSV); // Reload filtered data
     });
+let azimutsVisible = true;
+
+document.getElementById('toggle-azimuts').addEventListener('click', function () {
+  azimutsVisible = !azimutsVisible;
+
+  azimutLines.forEach(line => {
+    line.setMap(azimutsVisible ? map : null);
+  });
+
+  this.textContent = azimutsVisible ? 'Masquer les azimuts' : 'Afficher les azimuts';
+});
 
     // Event listener for day selection change
     document.getElementById('jourSelect').addEventListener('change', function () {
@@ -685,73 +698,63 @@ finalIntersections = Array.from(finalIntersectionsSet);
             const gradientStartColor = hexToRgb("#ADD8E6"); // Light Blue
             const gradientEndColor = hexToRgb("#8B0000");   // Dark Red
 
-            // Create intersection markers with the improved chronological gradient
-            finalIntersections.forEach((intersection, index) => {
-              let interpolatedColor;
+        // 🔄 Nouveau système : couleurs par jour
+function getColorFromDateString(dateString) {
+  // Convert date to a consistent hash-based color (ex: "#8FBC8F")
+  const hash = Array.from(dateString).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const r = (hash * 37) % 256;
+  const g = (hash * 53) % 256;
+  const b = (hash * 97) % 256;
+  return `rgb(${r}, ${g}, ${b})`;
+}
 
-              if (index < 2) {
-                  // The two oldest intersections get a very light color
-                  interpolatedColor = `rgb(${firstTwoColor[0]}, ${firstTwoColor[1]}, ${firstTwoColor[2]})`;
-              } else {
-                  // Subsequent intersections get a gradient from light blue to dark red
-                  const startIndexForGradient = 2;
-                  const numGradientPoints = finalIntersections.length - startIndexForGradient; // Number of intersections in the gradient part
+// Regrouper les intersections par date
+const dateColorMap = new Map();
 
-                  if (numGradientPoints > 0) {
-                      // Calculate factor based on position within the gradient slice
-                      const factor = (numGradientPoints === 1) ? 0 : (index - startIndexForGradient) / (numGradientPoints - 1);
-                      interpolatedColor = interpolateColor(gradientStartColor, gradientEndColor, factor);
-                  } else {
-                      // Fallback if somehow there are no gradient points (e.g., only 0 or 1 total intersection)
-                      interpolatedColor = `rgb(${gradientStartColor[0]}, ${gradientStartColor[1]}, ${gradientStartColor[2]})`;
-                  }
-              }
+finalIntersections.forEach((intersection, index) => {
+  const dateKey = intersection.crossDate?.toDateString?.() || 'N/A';
+  
+  if (!dateColorMap.has(dateKey)) {
+    dateColorMap.set(dateKey, getColorFromDateString(dateKey));
+  }
 
-              const intersectionMarker = new google.maps.Marker({
-                position: intersection.latLng,
-                map: map,
-                icon: {
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: interpolatedColor, // Color based on chronological order
-                  fillOpacity: 0.9,
-                  strokeColor: "#000",
-                  strokeWeight: 1,
-                  scale: 8,
-                },
-                title: `Croisement pour Individu ${intersection.numero}\n` +
-                       `Date: ${intersection.crossDate ? intersection.crossDate.toLocaleDateString() : 'N/A'}\n` +
-                       `Heure 1: ${intersection.pA.dateHeure || 'N/A'}\n` +
-                       `Heure 2: ${intersection.pB.dateHeure || 'N/A'}\n` +
-                       `Info 1: ${intersection.pA.info || 'Aucune'}\n` +
-                       `Info 2: ${intersection.pB.info || 'Aucune'}`
-              });
-              intersectionMarker.addListener("click", () => {
-  let infoWindowContent = `
-    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+  const markerColor = dateColorMap.get(dateKey);
+
+  const intersectionMarker = new google.maps.Marker({
+    position: intersection.latLng,
+    map: map,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      fillColor: markerColor,
+      fillOpacity: 0.9,
+      strokeColor: "#000",
+      strokeWeight: 1,
+      scale: 8,
+    },
+    title: `Croisement pour Individu ${intersection.numero}\n` +
+           `Date: ${intersection.crossDate ? intersection.crossDate.toLocaleDateString() : 'N/A'}\n` +
+           `Heure 1: ${intersection.pA.dateHeure || 'N/A'}\n` +
+           `Heure 2: ${intersection.pB.dateHeure || 'N/A'}\n` +
+           `Info 1: ${intersection.pA.info || 'Aucune'}\n` +
+           `Info 2: ${intersection.pB.info || 'Aucune'}`
+  });
+
+  intersectionMarker.addListener("click", () => {
+    let infoWindowContent = `
+      <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
         <h3 style="margin-top: 0; margin-bottom: 8px; color: #0056b3;">Intersection pour Individu ${intersection.numero}</h3>
-        <p style="margin-bottom: 4px;">
-            <strong>Point 1:</strong>
-            <br> Heure: ${intersection.pA.dateHeure || 'N/A'}
-            <br> Info: ${intersection.pA.info || 'Aucune'}
-        </p>
-        <p style="margin-bottom: 0;">
-            <strong>Point 2:</strong>
-            <br> Heure: ${intersection.pB.dateHeure || 'N/A'}
-            <br> Info: ${intersection.pB.info || 'Aucune'}
-        </p>
-        ${finalIntersections ? `<p style="margin-top: 8px;">Date de croisement (la plus ancienne): ${intersection.crossDate.toLocaleDateString()}</p>` : ''}
-        ${intersection.crossTimeInMinutes !== -1 ? `<p style="margin-top: 4px;">Heure du croisement: ${Math.floor(intersection.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(intersection.crossTimeInMinutes % 60).toString().padStart(2, '0')}</p>` : ''}
-        <p style="margin-top: 4px;"><strong>Coordonnées GPS :</strong> ${intersection.latLng.lat().toFixed(6)}, ${intersection.latLng.lng().toFixed(6)}</p>
-        <p style="margin-top: 4px; font-style: italic; color: #666;">
-            Ceci représente un point de croisement possible.
-        </p>
-    </div>
-  `;
-  infoWindow.setContent(infoWindowContent);
-  infoWindow.open(map, intersectionMarker);
-});
+        <p><strong>Point 1 :</strong><br>Heure : ${intersection.pA.dateHeure || 'N/A'}<br>Info : ${intersection.pA.info || 'Aucune'}</p>
+        <p><strong>Point 2 :</strong><br>Heure : ${intersection.pB.dateHeure || 'N/A'}<br>Info : ${intersection.pB.info || 'Aucune'}</p>
+        <p><strong>Date :</strong> ${intersection.crossDate?.toLocaleDateString() || 'N/A'}<br>
+        <strong>Coordonnées :</strong> ${intersection.latLng.lat().toFixed(6)}, ${intersection.latLng.lng().toFixed(6)}</p>
+      </div>`;
+    infoWindow.setContent(infoWindowContent);
+    infoWindow.open(map, intersectionMarker);
+  });
+
   intersectionMarkers.push(intersectionMarker);
-            });
+});
+
      if (finalIntersections && finalIntersections.length > 0) {
   debugInfoHTML += `<hr><strong>Intersections détectées (${finalIntersections.length}) :</strong><br>`;
   finalIntersections.forEach((inter, i) => {
