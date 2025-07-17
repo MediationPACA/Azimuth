@@ -94,11 +94,20 @@
   <div style="margin: 10px;">
     <label for="jourSelect">Choisir un jour :</label>
     <select id="jourSelect">
-      
-
-
+    
       <option value="">Tous les jours</option>
     </select>
+    <div style="margin: 10px;">
+  <label for="timeDiffSelect">Écart max entre deux azimuts (min) :</label>
+  <select id="timeDiffSelect">
+    <option value="1"selected>1 min</option>
+    <option value="2">2 min</option>
+    <option value="3" >3 min</option>
+    <option value="4">4 min</option>
+    <option value="5">5 min</option>
+  </select>
+</div>
+
   </div>
 
   <div id="map"></div>
@@ -148,6 +157,10 @@
       selectedDay = this.value;
       updateData(currentCSV); // Reload filtered data
     });
+    document.getElementById('timeDiffSelect').addEventListener('change', function () {
+  updateData(currentCSV); // Recalcule les intersections avec le nouveau délai
+});
+
 
     // SVG icons for markers
     function createPhoneSVG(color) { return `data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text x="5" y="30" font-size="30" fill="${color}">📞</text></svg>`; }
@@ -269,75 +282,63 @@ function datesAreSameDay(d1, d2) {
       updateData(currentCSV);
       setInterval(() => updateData(currentCSV), 120000); // Update every 2 minutes
     }
- document.getElementById('download-intersections-csv').addEventListener('click', function () {
-      if (!selectedDay) {
-        alert("Veuillez sélectionner une date pour filtrer les intersections.");
-        return;
-      }
+document.getElementById('download-intersections-csv').addEventListener('click', function () {
+  if (!window.finalIntersections || finalIntersections.length === 0) {
+    alert("Aucune intersection disponible.");
+    return;
+  }
 
-      const selectedDate = new Date(selectedDay);
+  let filtered = [];
+  if (selectedDay) {
+    const selectedDate = new Date(selectedDay);
+    filtered = finalIntersections.filter(inter =>
+      inter.crossDate && datesAreSameDay(inter.crossDate, selectedDate)
+    );
+    if (filtered.length === 0) {
+      alert("Aucun point d'intersection pour ce jour.");
+      return;
+    }
+  } else {
+    filtered = finalIntersections; // ➕ inclure tous les jours
+  }
 
-      // Si finalIntersections est une copie locale, s'assurer qu'on prend la bonne variable globale
-      let source = window.finalIntersections || [];
-console.log("finalIntersections:", source);
-console.log("selectedDay:", selectedDay);
+  const headers = [
+    'Individu', 'Date Croisement', 'Heure Croisement', 'Latitude', 'Longitude',
+    'position équipe 1', 'position équipe 2',
+    'Heure Azimut 1', 'Heure Azimut 2'
+  ];
 
- function datesAreSameDay(d1, d2) {
-  return (
-    d1 instanceof Date &&
-    d2 instanceof Date &&
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-}
+  const rows = filtered.map(inter => {
+    const crossTime = inter.crossTimeInMinutes !== -1
+      ? `${Math.floor(inter.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(inter.crossTimeInMinutes % 60).toString().padStart(2, '0')}`
+      : 'N/A';
 
-const filtered = source.filter(inter =>
-  inter.crossDate && datesAreSameDay(inter.crossDate, selectedDate)
-);
+    return [
+      inter.numero,
+      inter.crossDate.toLocaleDateString('fr-FR'),
+      crossTime,
+      inter.latLng.lat().toFixed(6),
+      inter.latLng.lng().toFixed(6),
+      `"Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
+      `"Lieu: ${inter.pB.position || '—'} | Azimut: ${inter.pB.azimut || '—'}"`,
+      `"${inter.pA.dateHeure || 'Aucune'}"`,
+      `"${inter.pB.dateHeure || 'N/A'}"`
+    ].join(',');
+  });
 
-      if (filtered.length === 0) {
-        alert("Aucun point d'intersection pour ce jour.");
-        return;
-      }
+  const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
 
-      const headers = [
-        'Individu', 'Date Croisement', 'Heure Croisement', 'Latitude', 'Longitude',
-        'position équipe 1', 'position équipe 2',
-        'Heure Azimut 1', 'Heure Azimut 2'
-      ];
+  const filename = `intersections_${selectedNumero || 'tous'}_${selectedDay ? selectedDay.replace(/\//g, '-') : 'tous_les_jours'}.csv`;
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", filename);
 
-      const rows = filtered.map(inter => {
-        const crossTime = inter.crossTimeInMinutes !== -1
-          ? `${Math.floor(inter.crossTimeInMinutes / 60).toString().padStart(2, '0')}:${(inter.crossTimeInMinutes % 60).toString().padStart(2, '0')}`
-          : 'N/A';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
 
-        return [
-          inter.numero,
-          inter.crossDate.toLocaleDateString('fr-FR'),
-          crossTime,
-          inter.latLng.lat().toFixed(6),
-          inter.latLng.lng().toFixed(6),
-          `"Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
-          `"Lieu: ${inter.pB.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
-          `"${inter.pA.dateHeure || 'Aucune'}"`,
-          `"${inter.pB.dateHeure || 'N/A'}"`,
-          inter.repondu
-        ].join(',');
-      });
-
-      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-
-      const filename = `intersections_individu_${selectedNumero || 'tous'}_${selectedDay.replace(/\//g, '-')}.csv`;
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", filename);
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
     /**
      * Calculates a point along a given azimuth at a certain distance,
      * returning an array [longitude, latitude] for Turf.js.
@@ -575,7 +576,8 @@ if (selectedDay && parsedDate && !datesAreSameDay(parsedDate, new Date(selectedD
                   const line1 = turf.lineString([pA.turfStart, pA.turfEnd]);
                   const line2 = turf.lineString([pB.turfStart, pB.turfEnd]);
 // 1. Définir l'écart de temps maximum en minutes
-const maxTimeDiffMinutes = 1; // Mettre 5 ou 10 selon votre besoin
+const timeDiffSelectElement = document.getElementById("timeDiffSelect");
+const maxTimeDiffMinutes = parseInt(timeDiffSelectElement?.value || "1", 10);
 
 // 2. Calculer la différence de temps absolue en minutes entre les deux points
 const timeDiffMs = Math.abs(dateA.getTime() - dateB.getTime());
@@ -590,6 +592,11 @@ if (timeDiffMinutes > maxTimeDiffMinutes) {
 
                   if (intersects.features.length > 0) {
                     const intersectionPoint = intersects.features[0].geometry.coordinates;
+                    // Filtrer les points proches de l’origine d’un des deux azimuts
+const distA = turf.distance(turf.point(intersectionPoint), turf.point(pA.turfStart));
+const distB = turf.distance(turf.point(intersectionPoint), turf.point(pB.turfStart));
+if (distA < 0.05 || distB < 0.05) continue; // Ignore si intersection trop proche (0.05 km = 50 m)
+
                     const intersectionLatLng = new google.maps.LatLng(intersectionPoint[1], intersectionPoint[0]);
 
                     // Use the earliest date of the two azimuts for the intersection's timestamp
