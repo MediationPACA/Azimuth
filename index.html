@@ -302,9 +302,9 @@ const filtered = source.filter(inter =>
       }
 
       const headers = [
-        'Individu', 'Date_Croisement', 'Heure_Croisement', 'Latitude', 'Longitude',
-        'Info_Point_1', 'Heure_Point_1',
-        'Info_Point_2', 'Heure_Point_2'
+        'Individu', 'Date Croisement', 'Heure Croisement', 'Latitude', 'Longitude',
+        'position équipe 1', 'position équipe 2',
+        'Heure Azimut 1', 'Heure Azimut 2'
       ];
 
       const rows = filtered.map(inter => {
@@ -319,9 +319,10 @@ const filtered = source.filter(inter =>
           inter.latLng.lat().toFixed(6),
           inter.latLng.lng().toFixed(6),
           `"Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
-          `"Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
-          `"${inter.pB.info || 'Aucune'}"`,
-          `"${inter.pB.dateHeure || 'N/A'}"`
+          `"Lieu: ${inter.pB.position || '—'} | Azimut: ${inter.pA.azimut || '—'}"`,
+          `"${inter.pA.dateHeure || 'Aucune'}"`,
+          `"${inter.pB.dateHeure || 'N/A'}"`,
+          inter.repondu
         ].join(',');
       });
 
@@ -473,7 +474,7 @@ if (selectedDay && parsedDate && !datesAreSameDay(parsedDate, new Date(selectedD
                   const marker = new google.maps.Marker({
                     position: finalPosition,
                     map: map,
-                    title: `${name} ${espece} \n${jourdispo}\n${info} ${Emoj} ${Emoj2}`,
+                    title: `${name} ${espece} \n${cityName}\n${info} ${Emoj} ${Emoj2}`,
                     icon: icon,
                     zIndex: 10
                   });
@@ -574,7 +575,7 @@ if (selectedDay && parsedDate && !datesAreSameDay(parsedDate, new Date(selectedD
                   const line1 = turf.lineString([pA.turfStart, pA.turfEnd]);
                   const line2 = turf.lineString([pB.turfStart, pB.turfEnd]);
 // 1. Définir l'écart de temps maximum en minutes
-const maxTimeDiffMinutes = 10; // Mettre 5 ou 10 selon votre besoin
+const maxTimeDiffMinutes = 1; // Mettre 5 ou 10 selon votre besoin
 
 // 2. Calculer la différence de temps absolue en minutes entre les deux points
 const timeDiffMs = Math.abs(dateA.getTime() - dateB.getTime());
@@ -827,7 +828,7 @@ finalIntersections = Array.from(finalIntersectionsSet);
       const input = document.getElementById("manualSearchInput");
       const query = input.value.trim();
 
-      if (!query) return alert("Please enter a city or address");
+      if (!query) return alert("ville ?");
 
       const geocoder = new google.maps.Geocoder();
 
