@@ -525,7 +525,7 @@ if (selectedDay && parsedDate && !datesAreSameDay(parsedDate, new Date(selectedD
 
                   }
 
-                  debugInfoHTML += `<div id="debug-line-${markers.length - 1}" data-index="${markers.length - 1}">${repondu} ---> ${espece} | info : ${info} | lieu Détection : ${cityName} | appel : ${seil} </div>\n`;
+                  debugInfoHTML += `<div id="debug-line-${markers.length - 1}" data-index="${markers.length - 1}">${cityName} ---> ${espece}  ${info} | lieu Détection : ${cityName} | Heure : ${seil} </div>\n`;
 
                 } catch (geocodeStatus) {
                   console.error(`Geocoding error for ${address}: ${geocodeStatus}`);
