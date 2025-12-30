@@ -19,7 +19,12 @@
     .header h1 { font-size: 30px; font-weight: bold; }
     .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px; }
     .page { font-size: 22px; font-weight: bold; margin-top: 3px; }
-    #map { height: 700px; width: 100%; }
+ #map {
+  height: 700px;
+  width: 700px;
+  margin: 0 auto; /* centre horizontalement */
+}
+
     #error-message { color: red; }
     #debug-info { margin-top: 10px; white-space: pre-wrap; font-family: Arial, sans-serif; }
     #legend { margin-top: 1px; padding: 1px; border: 0px solid black; width: fit-content; background-color: none; font-family: Arial, sans-serif; }
@@ -289,8 +294,8 @@ function datesAreSameDay(d1, d2) {
     // Map initialization
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 8.8,
-        center: { lat: 43.453354, lng: 6.288334 }
+        zoom: 8,
+        center: { lat: 43.553354, lng: 6.008334 }
       });
       infoWindow = new google.maps.InfoWindow();
       updateData(currentCSV);
