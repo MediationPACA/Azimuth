@@ -15,10 +15,10 @@
 
     /* CSS Général */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; text-align: center; background-color: #02012b; }
-    .header h1 { font-size: 30px; font-weight: bold; }
-    .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px; }
-    .page { font-size: 22px; font-weight: bold; margin-top: 3px; }
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #020233; }
+    .header h1 { font-size: 30px; font-weight: bold;color: rgb(247, 235, 235); }
+    .header p { font-size: 20px; font-weight: bold; max-width: 600px; margin-top: 1px;color: rgb(236, 226, 226); }
+    .page { font-size: 22px; font-weight: bold; margin-top: 3px; color: rgb(230, 228, 236); }
  #map {
   height: 700px;
   width: 700px;
@@ -26,10 +26,10 @@
 }
 
     #error-message { color: red; }
-    #debug-info { margin-top: 10px; white-space: pre-wrap; font-family: Arial, sans-serif; }
-    #legend { margin-top: 1px; padding: 1px; border: 0px solid black; width: fit-content; background-color: none; font-family: Arial, sans-serif; }
-    #legend ul { list-style: none; padding: 0; margin: 0; }
-    #legend li { margin-bottom: 4px; }
+    #debug-info { margin-top: 10px; white-space: pre-wrap; font-family: Arial, sans-serif; color: rgb(226, 212, 212);}
+    #legend { margin-top: 1px; padding: 1px; border: 0px solid rgb(236, 220, 220); width: fit-content; background-color: none; font-family: Arial, sans-serif; }
+    #legend ul { list-style: none; padding: 0; margin: 0;color: rgb(241, 236, 236); }
+    #legend li { margin-bottom: 4px;color: rgb(250, 245, 245); }
     #search-container { margin: 10px 0; font-family: Arial, sans-serif; }
     #search-input { padding: 5px; width: 250px; font-size: 14px; }
     #search-button { padding: 5px 10px; font-size: 14px; }
@@ -37,7 +37,7 @@
     
     #manualSearchInput { padding: 5px 20px; font-size: 14px; }
     #manualSearchButton { padding: 5px 10px; font-size: 14px; }
-    #toggle-debug { padding: 5px 10px; font-size: 14px; }
+    #toggle-debug { padding: 5px 10px; font-size: 14px; color: rgb(10, 10, 10);}
     .highlight { background-color: yellow; }
     .navbar {
       display: flex;
@@ -61,6 +61,7 @@
     .logout-button:hover {
       background-color: #c82333;
     }
+
     .link1 {
       display: inline-block;
       padding: 3px 10px;
@@ -83,6 +84,10 @@
     .sites:hover {
       background-color: #c82333;
     }
+    .label
+    {
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -90,14 +95,14 @@
     <h1>Azimuts</h1>
   </div>
   <p class="page">Données Chiroptères</p>
-  <div style="margin: 10px;">
+  <div style="margin: 10px;color: white;">
     <label for="numeroSelect">Choisir un individu :</label>
     <select id="numeroSelect">
       <option value="">Tous</option>
     </select>
   </div>
-  <div style="margin: 10px;">
-    <label for="jourSelect">Choisir un jour :</label>
+  <div style="margin: 10px; color: white;">
+    <label color= white for="jourSelect">Choisir un jour :</label>
     <select id="jourSelect">
     
       <option value="">Tous les jours</option>
@@ -131,7 +136,7 @@
       <button id="toggle-debug"><span id="arrow">▶</span> Afficher les infos</button>
       <div id="debug-info" style="display: none;"></div>
     </div>
-     <p class="link"><a href="https://docs.google.com/spreadsheets/d/1DS6Ictl46lEGFWpbA3r82lmDsYJL2tQw4Vkxj0je9s8/edit?gid=1940485869#gid=1940485869target=">azimuts</a></p>
+     <p  class="link1"><a href="https://docs.google.com/spreadsheets/d/1DS6Ictl46lEGFWpbA3r82lmDsYJL2tQw4Vkxj0je9s8/edit?gid=1940485869#gid=1940485869target="color= "white">azimuts</a></p>
   </div>
 
   <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdxk7Qju3plLpTKDVwHlyfJ--PucsApPSCteGgEIx5EIFK8Sw/viewform?embedded=true" width="640" height="780" frameborder="0" marginheight="0" marginwidth="0">Chargement…</iframe>
@@ -772,7 +777,7 @@ finalIntersections.forEach((intersection, index) => {
     const lng = inter.latLng?.lng?.() ?? '—';
 
     debugInfoHTML += `
-      <div style="font-size: 14px; color: #333;">
+      <div style="font-size: 14px; color: rgb(241, 236, 236);">
         ➤ <strong>Individu ${inter.numero}</strong> - ${inter.crossDate?.toLocaleDateString('fr-FR') || 'Date ?'} à ${heure}<br>
       ↳ <em>Lieu: ${inter.pA.position || '—'} | Azimut: ${inter.pA.azimut || '—'} (${inter.pA.dateHeure || '?'})</em><br>
 ↳ <em>Lieu: ${inter.pB.position || '—'} | Azimut: ${inter.pB.azimut || '—'} (${inter.pB.dateHeure || '?'})</em><br>
